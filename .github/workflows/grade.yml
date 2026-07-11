@@ -36,13 +36,18 @@ jobs:
         run: npm ci
 
       - name: Collect submission
-        run: node scripts/collect-submissions.js --github-user "${{ inputs.github_username }}"
+        run: |
+          node scripts/collect-submissions.js \
+            --github-user "${{ inputs.github_username }}"
 
       - name: Grade submission
-        run: node scripts/grade-submissions.js --github-user "${{ inputs.github_username }}"
+        run: |
+          node scripts/grade-submissions.js \
+            --github-user "${{ inputs.github_username }}"
 
       - name: Show grading result
-        run: node -e 'const r=require("./results/grading-results.json")[0]; console.log(`${r.github_username}: ${r.obtained}/${r.total} - ${r.feedback}`)'
+        run: |
+          node -e 'const r = require("./results/grading-results.json")[0]; console.log(`${r.github_username}: ${r.obtained}/${r.total} - ${r.feedback}`);'
 
       - name: Upload validated grading result
         uses: actions/upload-artifact@v4
