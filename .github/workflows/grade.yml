@@ -36,14 +36,14 @@ jobs:
         run: npm ci
 
       - name: Collect submission
-        run: |
-          node scripts/collect-submissions.js \
-            --github-user "${{ inputs.github_username }}"
+        env:
+          STUDENT_GITHUB_USERNAME: ${{ inputs.github_username }}
+        run: node scripts/collect-submissions.js --github-user "$STUDENT_GITHUB_USERNAME"
 
       - name: Grade submission
-        run: |
-          node scripts/grade-submissions.js \
-            --github-user "${{ inputs.github_username }}"
+        env:
+          STUDENT_GITHUB_USERNAME: ${{ inputs.github_username }}
+        run: node scripts/grade-submissions.js --github-user "$STUDENT_GITHUB_USERNAME"
 
       - name: Show grading result
         run: |
