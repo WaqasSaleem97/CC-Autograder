@@ -11,7 +11,17 @@ function argument(name) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-const username = argument("--github-user");
+function normalizeGithubUsername(value = "") {
+  return value
+    .trim()
+    .replace(/^https?:\/\/(?:www\.)?github\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/$/, "");
+}
+
+const username = normalizeGithubUsername(
+  argument("--github-user") || process.env.STUDENT_GITHUB_USERNAME || ""
+);
 if (!username) throw new Error("Provide --github-user.");
 
 const repositoryDirectory = path.join(root, "work", "submissions", username, config.repositoryName);

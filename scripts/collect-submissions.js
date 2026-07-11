@@ -11,10 +11,22 @@ function argument(name) {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-const username = argument("--github-user");
+function normalizeGithubUsername(value = "") {
+  return value
+    .trim()
+    .replace(/^https?:\/\/(?:www\.)?github\.com\//i, "")
+    .replace(/^@/, "")
+    .replace(/\/$/, "");
+}
 
-if (!username || !/^[a-zd](?:[a-zd-]{0,37}[a-zd])?$/i.test(username)) {
-  throw new Error("Provide a valid GitHub username with --github-user.");
+const rawUsername = argument("--github-user") || process.env.STUDENT_GITHUB_USERNAME || "";
+const username = normalizeGithubUsername(rawUsername);
+
+if (!username || !/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(username)) {
+  throw new Error(
+    `Invalid GitHub username: ${rawUsername ? JSON.stringify(rawUsername) : "empty value"}. ` +
+    "Enter username, @username, or https://github.com/username."
+  );
 }
 
 if (!/^[A-Za-z0-9._-]+$/.test(config.repositoryName)) {
