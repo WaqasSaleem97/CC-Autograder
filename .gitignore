@@ -1,0 +1,9 @@
+node_modules/
+work/
+results/*.json
+*.log
+.env
+.env.*
+serviceAccountKey.json
+*service-account*.json
+gha-creds-*.json

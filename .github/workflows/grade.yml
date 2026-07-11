@@ -1,0 +1,90 @@
+name: Grade student submission
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_username:
+        description: Student GitHub username
+        required: true
+        type: string
+      update_firestore:
+        description: Save the generated score to Firestore
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  grade:
+    name: Grade submission without secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout trusted grader
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Collect submission
+        run: node scripts/collect-submissions.js --github-user "${{ inputs.github_username }}"
+
+      - name: Grade submission
+        run: node scripts/grade-submissions.js --github-user "${{ inputs.github_username }}"
+
+      - name: Show grading result
+        run: node -e 'const r=require("./results/grading-results.json")[0]; console.log(`${r.github_username}: ${r.obtained}/${r.total} - ${r.feedback}`)'
+
+      - name: Upload validated grading result
+        uses: actions/upload-artifact@v4
+        with:
+          name: grading-result
+          path: results/grading-results.json
+          if-no-files-found: error
+          retention-days: 7
+
+  update-firestore:
+    name: Update Firestore in trusted job
+    needs: grade
+    if: ${{ inputs.update_firestore }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout trusted updater
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download grading result
+        uses: actions/download-artifact@v4
+        with:
+          name: grading-result
+          path: results
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Validate and update Firestore
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          EXPECTED_GITHUB_USERNAME: ${{ inputs.github_username }}
+        run: node scripts/update-firestore.js
