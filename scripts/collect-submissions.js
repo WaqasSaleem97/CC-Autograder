@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,53 +12,83 @@ function argument(name) {
 }
 
 function normalizeGithubUsername(value = "") {
-  return value
-    .trim()
-    .replace(/^https?:\/\/(?:www\.)?github\.com\//i, "")
-    .replace(/^@/, "")
-    .replace(/\/$/, "");
+  return String(value).trim().replace(/^https?:\/\/(?:www\.)?github\.com\//i, "")
+    .replace(/^@/, "").replace(/\/$/, "");
 }
 
-const rawUsername = argument("--github-user") || process.env.STUDENT_GITHUB_USERNAME || "";
-const username = normalizeGithubUsername(rawUsername);
+function validUsername(username) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(username);
+}
 
-if (!username || !/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(username)) {
-  throw new Error(
-    `Invalid GitHub username: ${rawUsername ? JSON.stringify(rawUsername) : "empty value"}. ` +
-    "Enter username, @username, or https://github.com/username."
+function loadStudents() {
+  const studentsFile = argument("--students-file");
+  if (studentsFile) {
+    const absolutePath = path.resolve(root, studentsFile);
+    const students = JSON.parse(readFileSync(absolutePath, "utf8"));
+    if (!Array.isArray(students) || students.length === 0) {
+      throw new Error("The students file must contain at least one student.");
+    }
+    return students;
+  }
+
+  const username = normalizeGithubUsername(
+    argument("--github-user") || process.env.STUDENT_GITHUB_USERNAME || ""
   );
+  if (!validUsername(username)) {
+    throw new Error("Provide --students-file or a valid --github-user.");
+  }
+  return [{ github_username: username }];
 }
 
 if (!/^[A-Za-z0-9._-]+$/.test(config.repositoryName)) {
   throw new Error("repositoryName contains unsupported characters.");
 }
 
+const students = loadStudents();
 const submissionsRoot = path.join(root, "work", "submissions");
-const destination = path.join(submissionsRoot, username, config.repositoryName);
-const repositoryUrl = `https://github.com/${username}/${config.repositoryName}.git`;
+mkdirSync(submissionsRoot, { recursive: true });
 
-mkdirSync(path.dirname(destination), { recursive: true });
-rmSync(destination, { recursive: true, force: true });
+let collected = 0;
+let failed = 0;
 
-console.log(`Cloning ${repositoryUrl}`);
+for (const student of students) {
+  const username = normalizeGithubUsername(student.github_username || student.user_name || "");
+  if (!validUsername(username)) {
+    console.error(`Skipping invalid GitHub username: ${JSON.stringify(username)}`);
+    failed += 1;
+    continue;
+  }
 
-try {
-  execFileSync("git", [
-    "clone",
-    "--depth", "1",
-    "--branch", config.branch,
-    "--config", "credential.helper=",
-    repositoryUrl,
-    destination
-  ], { stdio: "inherit", timeout: 120_000 });
-} catch {
-  throw new Error(`Unable to clone ${repositoryUrl}. Confirm that the repository exists and is public.`);
+  const destination = path.join(submissionsRoot, username, config.repositoryName);
+  const repositoryUrl = `https://github.com/${username}/${config.repositoryName}.git`;
+  mkdirSync(path.dirname(destination), { recursive: true });
+  rmSync(destination, { recursive: true, force: true });
+
+  const gitArguments = [];
+  if (process.env.GH_TOKEN) {
+    const basic = Buffer.from(`x-access-token:${process.env.GH_TOKEN}`).toString("base64");
+    gitArguments.push("-c", `http.extraheader=AUTHORIZATION: basic ${basic}`);
+  }
+  gitArguments.push(
+    "clone", "--depth", "1", "--branch", config.branch,
+    "--config", "credential.helper=", repositoryUrl, destination
+  );
+
+  console.log(`Cloning ${username}/${config.repositoryName}`);
+  try {
+    execFileSync("git", gitArguments, { stdio: "inherit", timeout: 120_000 });
+    const submissionDirectory = path.join(destination, ...config.submissionPath.split("/"));
+    if (!existsSync(submissionDirectory)) {
+      console.warn(`${username}: required directory is missing: ${config.submissionPath}`);
+    } else {
+      console.log(`${username}: submission collected.`);
+    }
+    collected += 1;
+  } catch (error) {
+    console.error(`${username}: repository could not be cloned (${error.message}).`);
+    failed += 1;
+  }
 }
 
-const submissionDirectory = path.join(destination, ...config.submissionPath.split("/"));
+console.log(`Collection complete: ${collected} cloned, ${failed} failed.`);
 
-if (!existsSync(submissionDirectory)) {
-  console.warn(`Required directory is missing: ${config.submissionPath}`);
-} else {
-  console.log(`Submission collected: ${submissionDirectory}`);
-}
