@@ -1,19 +1,16 @@
 {
   "name": "cc-autograder",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Trusted GitHub Actions autograder for the multi-course Firebase Student Marks Portal.",
   "scripts": {
-    "collect": "node scripts/collect-submissions.js",
-    "grade": "node scripts/grade-submissions.js",
-    "update-firestore": "node scripts/update-firestore.js",
-    "check": "node --check scripts/collect-submissions.js && node --check scripts/grade-submissions.js && node --check scripts/update-firestore.js"
+    "check": "node --check scripts/create-config.js && node --check scripts/load-students.js && node --check scripts/collect-submissions.js && node --check scripts/grade-submissions.js && node --check scripts/show-results.js && node --check scripts/update-firestore.js"
   },
   "dependencies": {
-    "firebase-admin": "^13.10.0"
+    "firebase-admin": "^13.4.0"
   },
   "engines": {
     "node": ">=22"
   }
 }
+

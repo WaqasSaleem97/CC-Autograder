@@ -1,107 +1,41 @@
 # CC Autograder
 
-Trusted GitHub Actions autograder for the multi-course Firebase Student Marks Portal.
+This generalized workflow grades any trusted assessment directory in approved students' repositories. Assessment category, name, repository, submission path, test script, maximum marks, branch, section, and student selection are entered when the workflow runs.
 
-This starter version grades one public repository at a time. It expects each student to create `GitHubUsername/CC` and place Lab 1 in `Labs/Lab1`.
+## Required GitHub settings
 
-## Security design
+- Variable `FIREBASE_PROJECT_ID`
+- Secret `FIREBASE_SERVICE_ACCOUNT`
+- Secret `STUDENT_REPOS_TOKEN` only when private student repositories must be cloned
 
-The workflow has two jobs:
+## Student selection
 
-1. `grade` downloads and executes untrusted student code without Firebase credentials.
-2. `update-firestore` receives only a small JSON result and is the only job with Firebase access.
+- `All` with `Both` grades every approved student in both sections.
+- `All` with `A` or `B` grades that section.
+- `Registration numbers` grades only the comma-separated numbers that also match the selected section.
 
-Never add Firebase credentials to the grading job or a student repository.
+## Test-script contract
 
-## Expected student structure
+The workflow calls:
 
-```text
-CC/
-├── Assignments/
-├── Quizzes/
-└── Labs/
-    └── Lab1/
-        └── main.py
+```bash
+bash tests/YourTest/test.sh /absolute/student/submission/path TOTAL_MARKS
 ```
 
-The example `main.py` must print:
+The final output line must be JSON:
 
-```text
-Cloud Computing Lab 1
+```json
+{"score":8,"feedback":"terraform fmt: 2/2; validate: 3/3; required resources: 3/5"}
 ```
 
-Change the rubric, paths, expected output and marks in `config/assignment.json` and `tests/Lab1/test.sh`.
+Create different trusted scripts for Git/GitHub, Linux, AWS configuration, Terraform, Ansible, and Docker assessments. Never place Firebase or AWS credentials in the grading job.
 
-## First test without Firebase
-
-1. Create this repository as a **private** instructor-controlled GitHub repository.
-2. Create a public test repository at `TestStudent/CC`.
-3. Add `Labs/Lab1/main.py` to the test repository.
-4. Open **Actions > Grade student submission > Run workflow**.
-5. Enter `TestStudent` and leave **Save the generated score to Firestore** unchecked.
-6. Open the workflow result and download the `grading-result` artifact.
-
-## Connect Firestore
-
-The updater expects the multi-course portal collections:
-
-```text
-users/{firebaseUid}
-enrollments/{firebaseUid}__{courseId}
-```
-
-It matches the student using `users.user_name`, then finds one approved enrollment whose `course_code` matches `config/assignment.json`.
-
-### Repository variable
-
-Create this GitHub Actions repository variable:
-
-```text
-Settings > Secrets and variables > Actions > Variables
-FIREBASE_PROJECT_ID = your-firebase-project-id
-```
-
-### Repository secret
-
-Generate a service-account JSON file from:
-
-```text
-Firebase Console > Project settings > Service accounts > Generate new private key
-```
-
-Create this GitHub Actions repository secret and paste the complete JSON content:
-
-```text
-Settings > Secrets and variables > Actions > Secrets
-FIREBASE_SERVICE_ACCOUNT
-```
-
-Never commit the JSON file.
-
-Run the workflow again and enable **Save the generated score to Firestore**.
-
-## Local validation
-
-Install dependencies and verify JavaScript syntax:
+## Install and verify
 
 ```bash
 npm install
 npm run check
 ```
 
-Generate `package-lock.json` before pushing so GitHub Actions can use `npm ci`:
+Commit `package-lock.json` so GitHub Actions can run `npm ci`.
 
-```bash
-npm install
-git add package-lock.json
-```
-
-## Private student repositories
-
-This starter clones public repositories. Your personal collaborator access is not automatically inherited by a workflow's `GITHUB_TOKEN`.
-
-For private submissions, use a GitHub App with read-only repository access or keep repositories inside an instructor-controlled organization. Do not place a broadly scoped personal access token in a job that executes student code.
-
-## Production warning
-
-The example test executes Python on an ephemeral GitHub-hosted runner with a timeout, but it is still a starter. For stronger isolation, run submissions in a restricted container with no network, limited CPU/memory/processes and no mounted credentials.

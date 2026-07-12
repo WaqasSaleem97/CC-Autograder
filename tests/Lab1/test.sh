@@ -1,48 +1,26 @@
 #!/usr/bin/env bash
+set -u
+submission_dir="$1"
+total_marks="$2"
 
-set -uo pipefail
+# Replace this example rubric with criteria appropriate for the selected lab.
+score=0
+feedback=()
 
-SUBMISSION_DIR="${1:-}"
-EXPECTED_OUTPUT="${2:-Cloud Computing Lab 1}"
-SCORE=0
-FEEDBACK=()
-
-if [[ -z "$SUBMISSION_DIR" || ! -d "$SUBMISSION_DIR" ]]; then
-  printf '{"score":0,"feedback":"Submission directory was not found."}\n'
-  exit 0
-fi
-
-MAIN_FILE="$SUBMISSION_DIR/main.py"
-
-# Criterion 1: required source file exists (2 marks).
-if [[ -f "$MAIN_FILE" ]]; then
-  SCORE=$((SCORE + 2))
-  FEEDBACK+=("main.py found: 2/2")
+if [[ -f "$submission_dir/main.py" ]]; then
+  score=$((score + 3))
+  feedback+=("main.py found: 3")
+  if python3 -m py_compile "$submission_dir/main.py" >/dev/null 2>&1; then
+    score=$((score + 7))
+    feedback+=("valid Python syntax: 7")
+  else
+    feedback+=("invalid Python syntax: 0")
+  fi
 else
-  FEEDBACK+=("main.py missing: 0/2")
-  printf '{"score":%d,"feedback":"%s"}\n' "$SCORE" "${FEEDBACK[*]}"
-  exit 0
+  feedback+=("main.py missing: 0")
 fi
 
-# Criterion 2: Python syntax is valid (3 marks).
-if python3 -m py_compile "$MAIN_FILE" >/dev/null 2>&1; then
-  SCORE=$((SCORE + 3))
-  FEEDBACK+=("valid Python syntax: 3/3")
-else
-  FEEDBACK+=("Python syntax error: 0/3")
-  printf '{"score":%d,"feedback":"%s"}\n' "$SCORE" "${FEEDBACK[*]}"
-  exit 0
-fi
+if (( score > total_marks )); then score="$total_marks"; fi
+joined=$(IFS=';'; echo "${feedback[*]}")
+node -e 'console.log(JSON.stringify({score:Number(process.argv[1]),feedback:process.argv[2]}))' "$score" "$joined"
 
-# Criterion 3: program finishes within 10 seconds and prints expected text (5 marks).
-PROGRAM_OUTPUT="$(timeout 10s python3 "$MAIN_FILE" 2>/dev/null || true)"
-
-if grep -Fq "$EXPECTED_OUTPUT" <<< "$PROGRAM_OUTPUT"; then
-  SCORE=$((SCORE + 5))
-  FEEDBACK+=("expected output found: 5/5")
-else
-  FEEDBACK+=("expected output not found: 0/5")
-fi
-
-FEEDBACK_TEXT="$(IFS='; '; echo "${FEEDBACK[*]}")"
-printf '{"score":%d,"feedback":"%s"}\n' "$SCORE" "$FEEDBACK_TEXT"

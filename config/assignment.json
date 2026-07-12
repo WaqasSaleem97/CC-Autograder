@@ -1,12 +1,10 @@
 {
-  "courseCode": "CC",
+  "courseCode": "cc",
   "repositoryName": "CC",
-  "category": "Lab",
+  "category": "Labs",
   "assessment": "Lab 1",
   "submissionPath": "Labs/Lab1",
   "testScript": "tests/Lab1/test.sh",
-  "expectedOutput": "Cloud Computing Lab 1",
   "totalMarks": 10,
-  "branch": "main",
-  "deadline": "2026-08-01T23:59:00+05:00"
+  "branch": "main"
 }

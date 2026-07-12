@@ -1,15 +1,50 @@
-name: Grade all approved students
+name: Grade approved students
 
 on:
   workflow_dispatch:
     inputs:
       course_id:
-        description: "Firestore course ID, for example CC"
+        description: "Firestore course ID or course code, for example cc"
         required: true
+        default: "cc"
         type: string
-
+      category:
+        description: "Marks category, for example Labs or Assignments"
+        required: true
+        default: "Labs"
+        type: string
+      assessment_name:
+        description: "Assessment name, for example Lab 1"
+        required: true
+        default: "Lab 1"
+        type: string
+      repository_name:
+        description: "Student repository name"
+        required: true
+        default: "CC"
+        type: string
+      submission_path:
+        description: "Directory inside each student repository"
+        required: true
+        default: "Labs/Lab1"
+        type: string
+      test_script:
+        description: "Trusted test script in this autograder repository"
+        required: true
+        default: "tests/Lab1/test.sh"
+        type: string
+      total_marks:
+        description: "Maximum marks"
+        required: true
+        default: "10"
+        type: string
+      branch:
+        description: "Student repository branch"
+        required: true
+        default: "main"
+        type: string
       section:
-        description: "Select the students' section"
+        description: "Section to grade"
         required: true
         default: "Both"
         type: choice
@@ -17,13 +52,18 @@ on:
           - "Both"
           - "A"
           - "B"
-
-      assessment:
-        description: "Assessment configuration name, for example Lab1"
+      student_selection:
+        description: "Students to grade"
         required: true
-        default: "Lab1"
+        default: "All"
+        type: choice
+        options:
+          - "All"
+          - "Registration numbers"
+      registration_numbers:
+        description: "Comma-separated numbers; required for Registration numbers"
+        required: false
         type: string
-
       update_firestore:
         description: "Save generated marks to Firestore"
         required: true
@@ -34,110 +74,123 @@ permissions:
   contents: read
 
 jobs:
-  grade:
-    name: Grade approved students
+  select-students:
+    name: Select approved students
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout trusted autograder
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Create results directory
-        run: mkdir -p results
-
-      # This service account is used to read approved students from Firestore.
-      - name: Authenticate with Google Cloud
+      - run: npm ci
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Load approved students from Firestore
+      - name: Load approved students
         env:
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           COURSE_ID: ${{ inputs.course_id }}
           SECTION: ${{ inputs.section }}
+          STUDENT_SELECTION: ${{ inputs.student_selection }}
+          REGISTRATION_NUMBERS: ${{ inputs.registration_numbers }}
         run: node scripts/load-students.js
+      - name: Upload selected student list
+        uses: actions/upload-artifact@v4
+        with:
+          name: selected-students
+          path: results/students.json
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Show selected student count
-        run: |
-          node -e "
-          const fs = require('fs');
-          const students = JSON.parse(
-            fs.readFileSync('results/students.json', 'utf8')
-          );
-
-          console.log('Students selected:', students.length);
-
-          if (students.length === 0) {
-            throw new Error(
-              'No approved students were found for the selected course and section.'
-            );
-          }
-          "
-
-      # STUDENT_REPOS_TOKEN is required when student repositories are private.
-      - name: Collect student submissions
+  grade:
+    name: Grade selected students without Firebase credentials
+    needs: select-students
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create and validate grading configuration
+        env:
+          COURSE_ID: ${{ inputs.course_id }}
+          CATEGORY: ${{ inputs.category }}
+          ASSESSMENT_NAME: ${{ inputs.assessment_name }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+          SUBMISSION_PATH: ${{ inputs.submission_path }}
+          TEST_SCRIPT: ${{ inputs.test_script }}
+          TOTAL_MARKS: ${{ inputs.total_marks }}
+          BRANCH: ${{ inputs.branch }}
+        run: node scripts/create-config.js
+      - name: Download selected students
+        uses: actions/download-artifact@v4
+        with:
+          name: selected-students
+          path: results
+      - name: Collect submissions
         env:
           GH_TOKEN: ${{ secrets.STUDENT_REPOS_TOKEN }}
-        run: |
-          node scripts/collect-submissions.js \
-            --students-file results/students.json \
-            --assessment "${{ inputs.assessment }}"
-
-      - name: Grade student submissions
-        run: |
-          node scripts/grade-submissions.js \
-            --students-file results/students.json \
-            --assessment "${{ inputs.assessment }}"
-
-      - name: Display grading summary
-        run: |
-          node -e "
-          const fs = require('fs');
-          const results = JSON.parse(
-            fs.readFileSync('results/grading-results.json', 'utf8')
-          );
-
-          console.log('Grading completed for', results.length, 'students');
-
-          for (const result of results) {
-            console.log(
-              result.github_username +
-              ': ' +
-              result.obtained +
-              '/' +
-              result.total +
-              ' - ' +
-              (result.feedback || '')
-            );
-          }
-          "
-
+        run: node scripts/collect-submissions.js --students-file results/students.json
+      - name: Grade submissions
+        run: node scripts/grade-submissions.js --students-file results/students.json
+      - name: Show results
+        run: node scripts/show-results.js
       - name: Upload grading results
         uses: actions/upload-artifact@v4
         with:
-          name: grading-results-${{ inputs.course_id }}-${{ inputs.section }}-${{ inputs.assessment }}
-          path: |
-            results/students.json
-            results/grading-results.json
+          name: grading-results
+          path: results/grading-results.json
           if-no-files-found: error
           retention-days: 7
 
-      - name: Update Firestore
-        if: ${{ inputs.update_firestore }}
+  update-firestore:
+    name: Update Firestore in trusted job
+    needs: grade
+    if: ${{ inputs.update_firestore }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create trusted grading configuration
+        env:
+          COURSE_ID: ${{ inputs.course_id }}
+          CATEGORY: ${{ inputs.category }}
+          ASSESSMENT_NAME: ${{ inputs.assessment_name }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+          SUBMISSION_PATH: ${{ inputs.submission_path }}
+          TEST_SCRIPT: ${{ inputs.test_script }}
+          TOTAL_MARKS: ${{ inputs.total_marks }}
+          BRANCH: ${{ inputs.branch }}
+        run: node scripts/create-config.js
+      - name: Download grading results
+        uses: actions/download-artifact@v4
+        with:
+          name: grading-results
+          path: results
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Reload trusted student list
         env:
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           COURSE_ID: ${{ inputs.course_id }}
           SECTION: ${{ inputs.section }}
-          ASSESSMENT: ${{ inputs.assessment }}
+          STUDENT_SELECTION: ${{ inputs.student_selection }}
+          REGISTRATION_NUMBERS: ${{ inputs.registration_numbers }}
+        run: node scripts/load-students.js
+      - name: Validate and update Firestore
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
         run: node scripts/update-firestore.js
