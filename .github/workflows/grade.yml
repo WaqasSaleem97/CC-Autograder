@@ -6,12 +6,12 @@ on:
       course_id:
         description: "Firestore course ID or course code, for example cc"
         required: true
-        default: "cc"
+        default: "CC"
         type: string
       category:
         description: "Marks category, for example Labs or Assignments"
         required: true
-        default: "Labs"
+        default: "Lab"
         type: string
       assessment_name:
         description: "Assessment name, for example Lab 1"
@@ -26,7 +26,7 @@ on:
       submission_path:
         description: "Directory inside each student repository"
         required: true
-        default: "Labs/Lab1"
+        default: "Lab/Lab1"
         type: string
       test_script:
         description: "Trusted test script in this autograder repository"
