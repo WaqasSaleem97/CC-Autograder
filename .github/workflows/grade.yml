@@ -6,12 +6,12 @@ on:
       course_id:
         description: "Firestore course ID or course code, for example cc"
         required: true
-        default: "CC"
+        default: "cc"
         type: string
       category:
         description: "Marks category, for example Labs or Assignments"
         required: true
-        default: "Lab"
+        default: "Labs"
         type: string
       assessment_name:
         description: "Assessment name, for example Lab 1"
@@ -24,15 +24,42 @@ on:
         default: "CC"
         type: string
       submission_path:
-        description: "Directory inside each student repository"
+        description: "Select the directory containing the student submission"
         required: true
         default: "Labs/Lab01"
-        type: string
-      test_script:
-        description: "Trusted test script in this autograder repository"
-        required: true
-        default: "tests/Lab1/test.sh"
-        type: string
+        type: choice
+        options:
+          - "Labs/Lab01"
+          - "Labs/Lab02"
+          - "Labs/Lab03"
+          - "Labs/Lab04"
+          - "Labs/Lab05"
+          - "Labs/Lab06"
+          - "Labs/Lab07"
+          - "Labs/Lab08"
+          - "Labs/Lab09"
+          - "Labs/Lab10"
+          - "Labs/Lab11"
+          - "Labs/Lab12"
+          - "Labs/Lab13"
+          - "Labs/Lab14"
+          - "Labs/Lab15"
+          - "Labs/Lab16"
+          - "Labs/Mid"
+          - "Labs/Final"
+          - "Assignments/Assignment01"
+          - "Assignments/Assignment02"
+          - "Assignments/Assignment03"
+          - "Assignments/Assignment04"
+          - "Assignments/Assignment05"
+          - "Quiz/Quiz01"
+          - "Quiz/Quiz02"
+          - "Quiz/Quiz03"
+          - "Quiz/Quiz04"
+          - "Quiz/Quiz05"
+          - "Project"
+          - "MidExam"
+          - "FinalExam"
       total_marks:
         description: "Maximum marks"
         required: true
@@ -123,6 +150,56 @@ jobs:
           sudo apt-get install -y \
             tesseract-ocr \
             python3-pil
+      - name: Select trusted test script automatically
+        env:
+          SUBMISSION_PATH: ${{ inputs.submission_path }}
+        run: |
+          case "$SUBMISSION_PATH" in
+            "Labs/Lab01") TEST_SCRIPT="tests/Lab1/test.sh" ;;
+            "Labs/Lab02") TEST_SCRIPT="tests/Lab2/test.sh" ;;
+            "Labs/Lab03") TEST_SCRIPT="tests/Lab3/test.sh" ;;
+            "Labs/Lab04") TEST_SCRIPT="tests/Lab4/test.sh" ;;
+            "Labs/Lab05") TEST_SCRIPT="tests/Lab5/test.sh" ;;
+            "Labs/Lab06") TEST_SCRIPT="tests/Lab6/test.sh" ;;
+            "Labs/Lab07") TEST_SCRIPT="tests/Lab7/test.sh" ;;
+            "Labs/Lab08") TEST_SCRIPT="tests/Lab8/test.sh" ;;
+            "Labs/Lab09") TEST_SCRIPT="tests/Lab9/test.sh" ;;
+            "Labs/Lab10") TEST_SCRIPT="tests/Lab10/test.sh" ;;
+            "Labs/Lab11") TEST_SCRIPT="tests/Lab11/test.sh" ;;
+            "Labs/Lab12") TEST_SCRIPT="tests/Lab12/test.sh" ;;
+            "Labs/Lab13") TEST_SCRIPT="tests/Lab13/test.sh" ;;
+            "Labs/Lab14") TEST_SCRIPT="tests/Lab14/test.sh" ;;
+            "Labs/Lab15") TEST_SCRIPT="tests/Lab15/test.sh" ;;
+            "Labs/Lab16") TEST_SCRIPT="tests/Lab16/test.sh" ;;
+            "Labs/Mid") TEST_SCRIPT="tests/LabMid/test.sh" ;;
+            "Labs/Final") TEST_SCRIPT="tests/LabFinal/test.sh" ;;
+            "Assignments/Assignment01") TEST_SCRIPT="tests/Assignment01/test.sh" ;;
+            "Assignments/Assignment02") TEST_SCRIPT="tests/Assignment02/test.sh" ;;
+            "Assignments/Assignment03") TEST_SCRIPT="tests/Assignment03/test.sh" ;;
+            "Assignments/Assignment04") TEST_SCRIPT="tests/Assignment04/test.sh" ;;
+            "Assignments/Assignment05") TEST_SCRIPT="tests/Assignment05/test.sh" ;;
+            "Quiz/Quiz01") TEST_SCRIPT="tests/Quiz01/test.sh" ;;
+            "Quiz/Quiz02") TEST_SCRIPT="tests/Quiz02/test.sh" ;;
+            "Quiz/Quiz03") TEST_SCRIPT="tests/Quiz03/test.sh" ;;
+            "Quiz/Quiz04") TEST_SCRIPT="tests/Quiz04/test.sh" ;;
+            "Quiz/Quiz05") TEST_SCRIPT="tests/Quiz05/test.sh" ;;
+            "Project") TEST_SCRIPT="tests/Project/test.sh" ;;
+            "MidExam") TEST_SCRIPT="tests/MidExam/test.sh" ;;
+            "FinalExam") TEST_SCRIPT="tests/FinalExam/test.sh" ;;
+            *)
+              echo "::error::Unsupported submission path: $SUBMISSION_PATH"
+              exit 1
+              ;;
+          esac
+
+          if [[ ! -f "$TEST_SCRIPT" ]]; then
+            echo "::error::The selected test script does not exist: $TEST_SCRIPT"
+            exit 1
+          fi
+
+          echo "Selected submission path: $SUBMISSION_PATH"
+          echo "Selected trusted test script: $TEST_SCRIPT"
+          echo "TEST_SCRIPT=$TEST_SCRIPT" >> "$GITHUB_ENV"
       - name: Create and validate grading configuration
         env:
           COURSE_ID: ${{ inputs.course_id }}
@@ -130,7 +207,6 @@ jobs:
           ASSESSMENT_NAME: ${{ inputs.assessment_name }}
           REPOSITORY_NAME: ${{ inputs.repository_name }}
           SUBMISSION_PATH: ${{ inputs.submission_path }}
-          TEST_SCRIPT: ${{ inputs.test_script }}
           TOTAL_MARKS: ${{ inputs.total_marks }}
           BRANCH: ${{ inputs.branch }}
         run: node scripts/create-config.js
@@ -168,6 +244,56 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Select trusted test script automatically
+        env:
+          SUBMISSION_PATH: ${{ inputs.submission_path }}
+        run: |
+          case "$SUBMISSION_PATH" in
+            "Labs/Lab01") TEST_SCRIPT="tests/Lab1/test.sh" ;;
+            "Labs/Lab02") TEST_SCRIPT="tests/Lab2/test.sh" ;;
+            "Labs/Lab03") TEST_SCRIPT="tests/Lab3/test.sh" ;;
+            "Labs/Lab04") TEST_SCRIPT="tests/Lab4/test.sh" ;;
+            "Labs/Lab05") TEST_SCRIPT="tests/Lab5/test.sh" ;;
+            "Labs/Lab06") TEST_SCRIPT="tests/Lab6/test.sh" ;;
+            "Labs/Lab07") TEST_SCRIPT="tests/Lab7/test.sh" ;;
+            "Labs/Lab08") TEST_SCRIPT="tests/Lab8/test.sh" ;;
+            "Labs/Lab09") TEST_SCRIPT="tests/Lab9/test.sh" ;;
+            "Labs/Lab10") TEST_SCRIPT="tests/Lab10/test.sh" ;;
+            "Labs/Lab11") TEST_SCRIPT="tests/Lab11/test.sh" ;;
+            "Labs/Lab12") TEST_SCRIPT="tests/Lab12/test.sh" ;;
+            "Labs/Lab13") TEST_SCRIPT="tests/Lab13/test.sh" ;;
+            "Labs/Lab14") TEST_SCRIPT="tests/Lab14/test.sh" ;;
+            "Labs/Lab15") TEST_SCRIPT="tests/Lab15/test.sh" ;;
+            "Labs/Lab16") TEST_SCRIPT="tests/Lab16/test.sh" ;;
+            "Labs/Mid") TEST_SCRIPT="tests/LabMid/test.sh" ;;
+            "Labs/Final") TEST_SCRIPT="tests/LabFinal/test.sh" ;;
+            "Assignments/Assignment01") TEST_SCRIPT="tests/Assignment01/test.sh" ;;
+            "Assignments/Assignment02") TEST_SCRIPT="tests/Assignment02/test.sh" ;;
+            "Assignments/Assignment03") TEST_SCRIPT="tests/Assignment03/test.sh" ;;
+            "Assignments/Assignment04") TEST_SCRIPT="tests/Assignment04/test.sh" ;;
+            "Assignments/Assignment05") TEST_SCRIPT="tests/Assignment05/test.sh" ;;
+            "Quiz/Quiz01") TEST_SCRIPT="tests/Quiz01/test.sh" ;;
+            "Quiz/Quiz02") TEST_SCRIPT="tests/Quiz02/test.sh" ;;
+            "Quiz/Quiz03") TEST_SCRIPT="tests/Quiz03/test.sh" ;;
+            "Quiz/Quiz04") TEST_SCRIPT="tests/Quiz04/test.sh" ;;
+            "Quiz/Quiz05") TEST_SCRIPT="tests/Quiz05/test.sh" ;;
+            "Project") TEST_SCRIPT="tests/Project/test.sh" ;;
+            "MidExam") TEST_SCRIPT="tests/MidExam/test.sh" ;;
+            "FinalExam") TEST_SCRIPT="tests/FinalExam/test.sh" ;;
+            *)
+              echo "::error::Unsupported submission path: $SUBMISSION_PATH"
+              exit 1
+              ;;
+          esac
+
+          if [[ ! -f "$TEST_SCRIPT" ]]; then
+            echo "::error::The selected test script does not exist: $TEST_SCRIPT"
+            exit 1
+          fi
+
+          echo "Selected submission path: $SUBMISSION_PATH"
+          echo "Selected trusted test script: $TEST_SCRIPT"
+          echo "TEST_SCRIPT=$TEST_SCRIPT" >> "$GITHUB_ENV"
       - name: Create trusted grading configuration
         env:
           COURSE_ID: ${{ inputs.course_id }}
@@ -175,7 +301,6 @@ jobs:
           ASSESSMENT_NAME: ${{ inputs.assessment_name }}
           REPOSITORY_NAME: ${{ inputs.repository_name }}
           SUBMISSION_PATH: ${{ inputs.submission_path }}
-          TEST_SCRIPT: ${{ inputs.test_script }}
           TOTAL_MARKS: ${{ inputs.total_marks }}
           BRANCH: ${{ inputs.branch }}
         run: node scripts/create-config.js
