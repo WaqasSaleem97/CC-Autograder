@@ -11,7 +11,7 @@ on:
       category:
         description: "Marks category, for example Labs or Assignments"
         required: true
-        default: "Labs"
+        default: "Lab"
         type: string
       assessment_name:
         description: "Assessment name, for example Lab 1"
