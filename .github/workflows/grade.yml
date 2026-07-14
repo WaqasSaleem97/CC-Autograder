@@ -6,7 +6,7 @@ on:
       course_id:
         description: "Firestore course ID or course code, for example cc"
         required: true
-        default: "cc"
+        default: "CC"
         type: string
       category:
         description: "Marks category, for example Labs or Assignments"
@@ -136,7 +136,7 @@ jobs:
     name: Grade selected students without Firebase credentials
     needs: select-students
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
