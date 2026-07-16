@@ -166,8 +166,8 @@ EOF
 
 required_screenshots=${#criteria[@]}
 
-# OCR all available screenshots concurrently. OCR_JOBS may be overridden in
-# the workflow; four workers is a safe default for GitHub-hosted runners.
+# OCR screenshots concurrently. By default, use the runner's available logical
+# CPUs. OCR_JOBS may request fewer workers but cannot exceed available CPUs or 8.
 ocr_dir="$(mktemp -d "/tmp/lab1-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -177,9 +177,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-ocr_jobs="${OCR_JOBS:-4}"
+available_cpus="$(nproc 2>/dev/null || true)"
+if [[ ! "$available_cpus" =~ ^[1-9][0-9]*$ ]]; then
+  available_cpus=2
+fi
+
+ocr_jobs="${OCR_JOBS:-$available_cpus}"
 if [[ ! "$ocr_jobs" =~ ^[1-9][0-9]*$ ]]; then
-  ocr_jobs=4
+  ocr_jobs="$available_cpus"
+fi
+if (( ocr_jobs > available_cpus )); then
+  ocr_jobs="$available_cpus"
 fi
 if (( ocr_jobs > 8 )); then
   ocr_jobs=8
