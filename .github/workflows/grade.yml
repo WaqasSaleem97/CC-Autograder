@@ -96,6 +96,11 @@ on:
         required: true
         default: false
         type: boolean
+      send_email_results:
+        description: "Email each student their private grading table through Gmail"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -235,9 +240,9 @@ jobs:
           retention-days: 7
 
   update-firestore:
-    name: Update Firestore in trusted job
+    name: Publish trusted grading results
     needs: grade
-    if: ${{ inputs.update_firestore }}
+    if: ${{ inputs.update_firestore || inputs.send_email_results }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -325,6 +330,15 @@ jobs:
           REGISTRATION_NUMBERS: ${{ inputs.registration_numbers }}
         run: node scripts/load-students.js
       - name: Validate and update Firestore
+        if: ${{ inputs.update_firestore }}
         env:
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
         run: node scripts/update-firestore.js
+      - name: Email individual grading tables through Gmail
+        if: ${{ inputs.send_email_results }}
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME }}
+          EMAIL_REPLY_TO: ${{ vars.EMAIL_REPLY_TO }}
+        run: node scripts/email-results.js

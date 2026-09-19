@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check scripts/create-config.js && node --check scripts/load-students.js && node --check scripts/collect-submissions.js && node --check scripts/grade-submissions.js && node --check scripts/show-results.js && node --check scripts/update-firestore.js"
+    "check": "node --check scripts/create-config.js && node --check scripts/load-students.js && node --check scripts/collect-submissions.js && node --check scripts/grade-submissions.js && node --check scripts/show-results.js && node --check scripts/update-firestore.js && node --check scripts/email-results.js"
   },
   "dependencies": {
-    "firebase-admin": "^13.4.0"
+    "firebase-admin": "^13.4.0",
+    "nodemailer": "^10.0.10"
   },
   "engines": {
     "node": ">=22"
   }
 }
-
