@@ -103,7 +103,8 @@ if [[ ! "$github_username" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] |
   json_error "A valid GitHub username was not provided and could not be detected from the repository origin."
 fi
 
-normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
+github_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
+normalized_username="$github_username"
 escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()]/\\&/g')"
 
 # Format:
@@ -124,7 +125,7 @@ github_actual_name.png|none|(public[[:space:]]+profile|edit[[:space:]]+profile|p
 portal_login_page.png|none|(student.*marks|marks.*portal|continue[[:space:]]+with[[:space:]]+github)
 portal_github_profile.png|username|(profile|account|github)
 portal_enrollment_submitted.png|none|20[0-9]{2}[-[:space:]][a-z]{2,4}[-[:space:]][0-9]{1,3};;(pending|submitted|approval|enrollment);;(course|section)
-vmware_workstation.png|none|vmware;;workstation
+vmware_workstation.png|none|(vmware|workstation[[:space:]]+pro)
 ubuntu_server_iso.png|none|ubuntu;;server;;(iso|\.iso)
 available_storage.png|none|(free|available);;(gb|gib|storage|space)
 vm_creation_wizard.png|none|(new[[:space:]]+virtual[[:space:]]+machine|virtual[[:space:]]+machine[[:space:]]+wizard)
@@ -135,8 +136,8 @@ ubuntu_installer_boot.png|none|ubuntu;;(server|install|installer)
 ubuntu_language.png|none|(language|english|welcome)
 ubuntu_keyboard_layout.png|none|keyboard;;layout
 ubuntu_keyboard_variant.png|none|(keyboard|layout);;variant
-ubuntu_installation_type.png|none|ubuntu;;server;;(install|installation)
-ubuntu_network_interface.png|none|(network|connections);;(eth[0-9]*|ens[0-9]+|enp[0-9a-z]+|dhcp)
+ubuntu_installation_type.png|none|ubuntu;;server;;(install|installation|minimized|choose.*base)
+ubuntu_network_interface.png|none|(network|connections|dhcp|interface);;(eth[0-9]*|ens[0-9]+|enp[0-9a-z]+|dhcp)
 ubuntu_installer_network.png|ipv4|(network|connections|dhcp|automatic)
 ubuntu_guided_storage.png|none|(guided|use[[:space:]]+an[[:space:]]+entire[[:space:]]+disk|storage)
 ubuntu_storage_configuration.png|none|(storage|filesystem);;(disk|partition|mount)
@@ -166,8 +167,56 @@ EOF
 
 required_screenshots=${#criteria[@]}
 
+# Match screenshots by the required filename without considering their image
+# extension. Repeated extensions such as .png.png are also ignored. The
+# filename itself remains exact, so unrelated evidence cannot be substituted.
+expected_screenshots=()
+for rule in "${criteria[@]}"; do
+  expected_screenshots+=("${rule%%|*}")
+done
+
+declare -A resolved_screenshots
+while IFS=$'\t' read -r expected actual; do
+  resolved_screenshots["$expected"]="$actual"
+done < <(python3 - "$screenshots_dir" "${expected_screenshots[@]}" <<'PY'
+import pathlib
+import sys
+from collections import defaultdict
+
+directory = pathlib.Path(sys.argv[1])
+expected_names = sys.argv[2:]
+image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif")
+
+def filename_key(name):
+    value = name.casefold().rstrip(".")
+    while True:
+        for extension in image_extensions:
+            if value.endswith(extension):
+                value = value[:-len(extension)].rstrip(".")
+                break
+        else:
+            return value
+
+files = defaultdict(list)
+for candidate in directory.iterdir():
+    if candidate.is_file() and "\t" not in candidate.name and "\n" not in candidate.name:
+        files[filename_key(candidate.name)].append(candidate.resolve())
+
+for expected in expected_names:
+    matches = sorted(files.get(filename_key(expected), []))
+    if len(matches) == 1:
+        resolved = str(matches[0])
+    elif len(matches) > 1:
+        resolved = "__AMBIGUOUS__"
+    else:
+        resolved = ""
+    print(f"{expected}\t{resolved}")
+PY
+)
+
 # OCR screenshots concurrently. By default, use the runner's available logical
-# CPUs. OCR_JOBS may request fewer workers but cannot exceed available CPUs or 8.
+# CPUs. Each Tesseract process is restricted to one thread so parallel OCR does
+# not oversubscribe the runner. OCR_JOBS cannot exceed available CPUs or 8.
 ocr_dir="$(mktemp -d "/tmp/lab1-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -182,7 +231,8 @@ if [[ ! "$available_cpus" =~ ^[1-9][0-9]*$ ]]; then
   available_cpus=2
 fi
 
-ocr_jobs="${OCR_JOBS:-$available_cpus}"
+export OMP_THREAD_LIMIT="${OMP_THREAD_LIMIT:-1}"
+ocr_jobs="${OCR_JOBS:-4}"
 if [[ ! "$ocr_jobs" =~ ^[1-9][0-9]*$ ]]; then
   ocr_jobs="$available_cpus"
 fi
@@ -193,17 +243,19 @@ if (( ocr_jobs > 8 )); then
   ocr_jobs=8
 fi
 
-printf '%s\n' "${criteria[@]}" |
-  cut -d'|' -f1 |
-  while IFS= read -r filename; do
-    [[ -f "$screenshots_dir/$filename" ]] && printf '%s\n' "$filename"
-  done |
-  xargs -r -P "$ocr_jobs" -I '{}' \
+for rule in "${criteria[@]}"; do
+  filename="${rule%%|*}"
+  image="${resolved_screenshots[$filename]:-}"
+  [[ -f "$image" ]] && printf '%s\0%s\0' "$filename" "$image"
+done |
+  xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
-      source_image="$1/$2"
-      output_base="$3/${2%.*}"
+      ocr_dir="$1"
+      filename="$2"
+      source_image="$3"
+      output_base="$ocr_dir/${filename%.*}"
       tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
-    ' _ "$screenshots_dir" '{}' "$ocr_dir"
+    ' _ "$ocr_dir"
 
 # Create one duplicate index for the complete grading run. Screenshots with
 # the same task filename are compared across students. Exact copies are
@@ -232,21 +284,32 @@ root = pathlib.Path(sys.argv[1]).resolve()
 relative = pathlib.PurePosixPath(sys.argv[2])
 output = pathlib.Path(sys.argv[3])
 groups = defaultdict(list)
+image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif")
+
+def filename_key(name):
+    value = name.casefold().rstrip(".")
+    while True:
+        for extension in image_extensions:
+            if value.endswith(extension):
+                value = value[:-len(extension)].rstrip(".")
+                break
+        else:
+            return value
 
 identity_files = {
-    "github_profile.png",
-    "portal_github_profile.png",
-    "ubuntu_username.png",
-    "ubuntu_profile_setup.png",
-    "ubuntu_terminal_login.png",
-    "ubuntu_identity_verified.png",
-    "ubuntu_ip_addr_command.png",
-    "ubuntu_ip_address.png",
-    "windows_ssh_command.png",
-    "windows_ssh_fingerprint.png",
-    "windows_ssh_login.png",
-    "windows_ssh_identity.png",
-    "solution_title_page.png",
+    "github_profile",
+    "portal_github_profile",
+    "ubuntu_username",
+    "ubuntu_profile_setup",
+    "ubuntu_terminal_login",
+    "ubuntu_identity_verified",
+    "ubuntu_ip_addr_command",
+    "ubuntu_ip_address",
+    "windows_ssh_command",
+    "windows_ssh_fingerprint",
+    "windows_ssh_login",
+    "windows_ssh_identity",
+    "solution_title_page",
 }
 
 for repository in root.glob("*/*"):
@@ -254,8 +317,8 @@ for repository in root.glob("*/*"):
     if not screenshot_dir.is_dir():
         continue
     for image in screenshot_dir.iterdir():
-        if image.is_file() and image.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-            groups[image.name.lower()].append(image.resolve())
+        if image.is_file():
+            groups[filename_key(image.name)].append(image.resolve())
 
 def exact_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -322,9 +385,14 @@ for rule in "${criteria[@]}"; do
   remainder="${rule#*|}"
   identity_flags="${remainder%%|*}"
   evidence_groups="${remainder#*|}"
-  image="$screenshots_dir/$filename"
+  image="${resolved_screenshots[$filename]:-}"
 
-  if [[ ! -f "$image" ]]; then
+  if [[ "$image" == "__AMBIGUOUS__" ]]; then
+    feedback+=("$filename: multiple files have this name when extensions are ignored (0)")
+    continue
+  fi
+
+  if [[ -z "$image" || ! -f "$image" ]]; then
     feedback+=("$filename: missing (0)")
     continue
   fi
@@ -398,7 +466,7 @@ PY
       missing_evidence="$evidence_pattern"
       break
     fi
-  done < <(printf '%s' "$evidence_groups" | sed 's/;;/\n/g')
+  done < <(printf '%s\n' "$evidence_groups" | sed 's/;;/\n/g')
 
   if [[ "$evidence_ok" != true ]]; then
     feedback+=("$filename: required task evidence was not detected (0)")

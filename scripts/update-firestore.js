@@ -14,12 +14,20 @@ if (!Array.isArray(results) || !results.length) throw new Error("No grading resu
 initializeApp({ credential: applicationDefault(), projectId });
 const db = getFirestore();
 const trusted = new Map(students.map((s) => [String(s.github_username).toLowerCase(), s]));
+let updated = 0;
+let skipped = 0;
 
 for (const result of results) {
   const student = trusted.get(String(result.github_username).toLowerCase());
   if (!student || result.firebase_uid !== student.firebase_uid || result.enrollment_path !== student.enrollment_path) throw new Error(`Untrusted result for ${result.github_username}.`);
   if (String(result.course_code).toLowerCase() !== config.courseCode.toLowerCase() || result.category !== config.category || result.assessment !== config.assessment) throw new Error(`Configuration mismatch for ${result.github_username}.`);
   if (result.repository.toLowerCase() !== `${student.github_username}/${config.repositoryName}`.toLowerCase()) throw new Error("Repository mismatch.");
+  if (result.status === "error") {
+    console.warn(`Skipped ${student.registration_number}: ${result.feedback}`);
+    skipped++;
+    continue;
+  }
+  if (result.status !== "graded") throw new Error(`Unknown grading status for ${result.github_username}.`);
   if (!Number.isFinite(result.obtained) || result.obtained < 0 || result.total !== config.totalMarks || result.obtained > result.total) throw new Error("Invalid marks.");
   const ref = db.doc(student.enrollment_path);
   await db.runTransaction(async (transaction) => {
@@ -38,5 +46,7 @@ for (const result of results) {
     transaction.update(ref, { marks: { categories }, updated_at: FieldValue.serverTimestamp() });
   });
   console.log(`Updated ${student.registration_number}: ${config.category}/${config.assessment} = ${result.obtained}/${result.total}`);
+  updated++;
 }
 
+console.log(`Firestore update complete: ${updated} updated, ${skipped} skipped because grading did not complete.`);

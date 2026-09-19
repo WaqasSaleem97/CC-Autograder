@@ -139,6 +139,7 @@ jobs:
     timeout-minutes: 360
     env:
       OCR_JOBS: 4
+      OMP_THREAD_LIMIT: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

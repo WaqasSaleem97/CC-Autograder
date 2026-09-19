@@ -8,6 +8,10 @@ This generalized workflow grades any trusted assessment directory in approved st
 - Secret `FIREBASE_SERVICE_ACCOUNT`
 - Secret `STUDENT_REPOS_TOKEN` only when private student repositories must be cloned
 
+If a repository cannot be collected or a trusted test crashes or times out, the
+student is reported as `NOT GRADED`. Infrastructure errors are skipped during
+the Firestore update and are never converted into zero marks.
+
 ## Student selection
 
 - `All` with `Both` grades every approved student in both sections.
@@ -30,6 +34,10 @@ The final output line must be JSON:
 
 Create different trusted scripts for Git/GitHub, Linux, AWS configuration, Terraform, Ansible, and Docker assessments. Never place Firebase or AWS credentials in the grading job.
 
+For Lab 01, GitHub usernames are normalized to lowercase before Ubuntu identity
+checks. Screenshot extensions are ignored, including repeated image extensions
+such as `.png.png`; the required filename before the extension must still match.
+
 ## Install and verify
 
 ```bash
@@ -38,4 +46,3 @@ npm run check
 ```
 
 Commit `package-lock.json` so GitHub Actions can run `npm ci`.
-
