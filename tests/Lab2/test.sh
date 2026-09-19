@@ -8,7 +8,7 @@ set -u
 #
 # GitHub Actions example:
 #   tests/Lab2/test.sh \
-#     work/submissions/Student/CC/Labs/Lab2 \
+#     work/submissions/Student/CC/Labs/Lab02 \
 #     10
 #
 # Manual example:
@@ -65,7 +65,7 @@ submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
 
 if [[ ! -d "$screenshots_dir" ]]; then
-  json_error "Required directory is missing: Labs/Lab2/screenshots"
+  json_error "Required directory is missing: Labs/Lab02/screenshots"
 fi
 
 # Username priority:
@@ -103,6 +103,9 @@ fi
 normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
 escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()]/\\&/g')"
 
+# This list must match the 37 mandatory files in
+# CC_F26/Labs/Lab02/README.md. Bonus and exam-practice screenshots are not
+# included in the automated score.
 # Every line is: filename|required OCR expressions separated by ;;
 # The <GitHub username>@ubuntu identity check is applied to every screenshot.
 readarray -t criteria <<'EOF'
@@ -135,7 +138,6 @@ branch_merges.png|develop;;staging;;merge
 final_merge.png|staging;;main;;merge
 pr_create_details.png|pull request;;title;;description
 pr_assigned_reviewer.png|reviewer;;pull request
-pr_approved.png|approved;;review
 pr_request_changes.png|(changes requested|request changes)
 pr_rejected.png|(closed|rejected)
 pr_updated_with_commits.png|commits;;pull request
@@ -144,12 +146,12 @@ pr_merged.png|merged;;pull request
 pr_branch_deleted.png|deleted;;branch
 remote_branch_deleted.png|deleted;;remote;;branch
 remote_branch_delete_cmd.png|git[[:space:]]+push;;--delete;;branch
-Q1_branch_created.png|git;;branch;;(checkout|switch)
-Q1_commit_done.png|commit
-Q1_merge_done.png|merge
 EOF
 
 required_screenshots=${#criteria[@]}
+if (( required_screenshots != 37 )); then
+  json_error "Trusted Lab 2 grader configuration must contain exactly 37 mandatory screenshot checks."
+fi
 
 # OCR screenshots concurrently. By default, use the runner's available logical
 # CPUs. OCR_JOBS may request fewer workers but cannot exceed available CPUs or 8.
