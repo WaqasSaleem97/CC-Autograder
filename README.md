@@ -7,10 +7,29 @@ This generalized workflow grades any trusted assessment directory in approved st
 - Variable `FIREBASE_PROJECT_ID`
 - Secret `FIREBASE_SERVICE_ACCOUNT`
 - Secret `STUDENT_REPOS_TOKEN` only when private student repositories must be cloned
+- Secret `GMAIL_USER` containing the Gmail address that sends results
+- Secret `GMAIL_APP_PASSWORD` containing a dedicated 16-character Google App Password
+- Optional variable `EMAIL_FROM_NAME`, for example `CC Autograder`
+- Optional variable `EMAIL_REPLY_TO` for student questions
 
 If a repository cannot be collected or a trusted test crashes or times out, the
 student is reported as `NOT GRADED`. Infrastructure errors are skipped during
 the Firestore update and are never converted into zero marks.
+
+## Emailing results through Gmail
+
+Enable 2-Step Verification on the sender's Google account and create a dedicated
+App Password. Save the Gmail address and App Password as the repository secrets
+listed above; never commit either value. The normal Google account password must
+not be used.
+
+When starting the grading workflow, enable `send_email_results`. The trusted
+publishing job reloads current student records from Firestore and sends one
+private message per valid student email address. Each message contains the
+score, summary, repository, grading time, and a table of every passed, missing,
+or failed check. Students with no valid email address are skipped without
+printing their address. Keep the option disabled when rerunning a workflow
+unless the result emails should be sent again.
 
 ## Student selection
 
