@@ -60,6 +60,10 @@ ignored, and repeated image extensions such as `.png.png` are accepted. The
 required filename before the extension must still match. Students' GitHub
 repositories are never modified by this normalization.
 
+The screenshot directory name is also case-insensitive. Names such as
+`screenshots`, `Screenshots`, `SCREENSHOTS`, and `ScreenShots` are all treated
+as the required `screenshots` directory.
+
 For Lab 01 and Lab 02, GitHub usernames are also normalized to lowercase before
 Ubuntu identity checks. Shared OCR preprocessing checks browser pages,
 terminals, and bright fields in the dark Ubuntu installer UI. It tolerates a

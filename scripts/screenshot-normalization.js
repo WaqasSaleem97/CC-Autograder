@@ -9,6 +9,7 @@ import path from "node:path";
 
 const imageExtension = /\.\s*(?:jpeg|jpg|png|webp|bmp|tiff|tif|gif)\s*$/i;
 const quarantineName = ".autograder-ignored-screenshot-name-collisions";
+const folderQuarantineName = ".autograder-ignored-screenshot-folder-collisions";
 
 export function canonicalScreenshotName(filename) {
   let stem = String(filename || "").trim();
@@ -46,6 +47,42 @@ function unusedQuarantinePath(directory, relativeDirectory, filename) {
     counter += 1;
   }
   return target;
+}
+
+/**
+ * Find and normalize the immediate screenshots directory without treating a
+ * capitalization mistake as a missing submission. The operation is performed
+ * only in the disposable repository clone collected by the grading workflow.
+ */
+export function normalizeScreenshotsDirectory(submissionDirectory) {
+  const submission = path.resolve(submissionDirectory);
+  if (!existsSync(submission) || !statSync(submission).isDirectory()) return null;
+
+  const canonical = path.join(submission, "screenshots");
+  const matches = readdirSync(submission, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.toLowerCase() === "screenshots")
+    .map((entry) => path.join(submission, entry.name))
+    .sort((left, right) => {
+      const leftExact = left === canonical ? 0 : 1;
+      const rightExact = right === canonical ? 0 : 1;
+      return leftExact - rightExact || left.localeCompare(right);
+    });
+
+  if (matches.length === 0) return null;
+  const [winner, ...duplicates] = matches;
+  const quarantine = path.join(submission, folderQuarantineName);
+
+  for (const duplicate of duplicates) {
+    const destination = unusedQuarantinePath(
+      quarantine,
+      "",
+      path.basename(duplicate)
+    );
+    renameSync(duplicate, destination);
+  }
+
+  if (winner !== canonical) renameSync(winner, canonical);
+  return canonical;
 }
 
 /**
