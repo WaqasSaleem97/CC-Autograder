@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeScreenshotFilenames } from "./screenshot-normalization.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const config = JSON.parse(readFileSync(path.join(root, "config/assignment.json"), "utf8"));
@@ -9,6 +10,24 @@ const argument = (name) => { const index = process.argv.indexOf(name); return in
 const students = JSON.parse(readFileSync(path.resolve(root, argument("--students-file") || "results/students.json"), "utf8"));
 const testScript = path.resolve(root, config.testScript);
 const results = [];
+const preparationErrors = new Map();
+
+// Normalize every collected repository before the first student is graded so
+// duplicate detection sees the same case-insensitive filenames for everyone.
+// These are disposable workflow clones; students' GitHub repositories are not
+// modified.
+for (const student of students) {
+  const username = student.github_username;
+  const repository = path.join(root, "work/submissions", username, config.repositoryName);
+  const submission = path.join(repository, ...config.submissionPath.split("/"));
+  const screenshots = path.join(submission, "screenshots");
+  if (!existsSync(screenshots)) continue;
+  try {
+    normalizeScreenshotFilenames(screenshots);
+  } catch (error) {
+    preparationErrors.set(username, error);
+  }
+}
 
 for (const student of students) {
   const username = student.github_username;
@@ -17,7 +36,11 @@ for (const student of students) {
   const submission = path.join(repository, ...config.submissionPath.split("/"));
   let testResult;
   let status = "graded";
-  if (!existsSync(repository)) {
+  if (preparationErrors.has(username)) {
+    status = "error";
+    testResult = { score: null, feedback: `Screenshot filename normalization failed; marks were not changed: ${preparationErrors.get(username).message}` };
+  }
+  else if (!existsSync(repository)) {
     status = "error";
     testResult = { score: null, feedback: "Repository could not be collected; marks were not changed." };
   }
