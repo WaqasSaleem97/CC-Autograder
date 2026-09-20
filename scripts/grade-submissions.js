@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeScreenshotFilenames } from "./screenshot-normalization.js";
+import {
+  normalizeScreenshotFilenames,
+  normalizeScreenshotsDirectory
+} from "./screenshot-normalization.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const config = JSON.parse(readFileSync(path.join(root, "config/assignment.json"), "utf8"));
@@ -20,9 +23,9 @@ for (const student of students) {
   const username = student.github_username;
   const repository = path.join(root, "work/submissions", username, config.repositoryName);
   const submission = path.join(repository, ...config.submissionPath.split("/"));
-  const screenshots = path.join(submission, "screenshots");
-  if (!existsSync(screenshots)) continue;
   try {
+    const screenshots = normalizeScreenshotsDirectory(submission);
+    if (!screenshots) continue;
     normalizeScreenshotFilenames(screenshots);
   } catch (error) {
     preparationErrors.set(username, error);
@@ -38,7 +41,7 @@ for (const student of students) {
   let status = "graded";
   if (preparationErrors.has(username)) {
     status = "error";
-    testResult = { score: null, feedback: `Screenshot filename normalization failed; marks were not changed: ${preparationErrors.get(username).message}` };
+    testResult = { score: null, feedback: `Screenshot folder or filename normalization failed; marks were not changed: ${preparationErrors.get(username).message}` };
   }
   else if (!existsSync(repository)) {
     status = "error";

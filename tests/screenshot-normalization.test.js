@@ -5,8 +5,31 @@ import path from "node:path";
 import test from "node:test";
 import {
   canonicalScreenshotName,
-  normalizeScreenshotFilenames
+  normalizeScreenshotFilenames,
+  normalizeScreenshotsDirectory
 } from "../scripts/screenshot-normalization.js";
+
+test("accepts capitalization variants of the screenshots directory", () => {
+  for (const submittedName of ["Screenshots", "SCREENSHOTS", "ScreenShots"]) {
+    const submission = mkdtempSync(path.join(os.tmpdir(), "screenshot-folder-"));
+    const submitted = path.join(submission, submittedName);
+    mkdirSync(submitted);
+    writeFileSync(path.join(submitted, "evidence.png"), "image");
+
+    const normalized = normalizeScreenshotsDirectory(submission);
+
+    assert.equal(normalized, path.join(submission, "screenshots"));
+    assert.equal(
+      existsSync(path.join(submission, "screenshots", "evidence.png")),
+      true
+    );
+  }
+});
+
+test("returns null when no screenshots directory exists", () => {
+  const submission = mkdtempSync(path.join(os.tmpdir(), "screenshot-missing-"));
+  assert.equal(normalizeScreenshotsDirectory(submission), null);
+});
 
 test("normalizes screenshot case and repeated image extensions", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "screenshot-case-"));
