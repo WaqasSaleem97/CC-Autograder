@@ -3,7 +3,7 @@
   "repositoryName": "CC",
   "category": "Labs",
   "assessment": "Lab 1",
-  "submissionPath": "Labs/Lab1",
+  "submissionPath": "Labs/Lab01",
   "testScript": "tests/Lab1/test.sh",
   "totalMarks": 10,
   "branch": "main"
