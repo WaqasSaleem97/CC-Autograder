@@ -126,13 +126,13 @@ portal_login_page.png|none|(student.*marks|marks.*portal|continue[[:space:]]+wit
 portal_github_profile.png|username|(profile|account|github)
 portal_enrollment_submitted.png|none|20[0-9]{2}[-[:space:]][a-z]{2,4}[-[:space:]][0-9]{1,3};;(pending|submitted|approval|enrollment);;(course|section)
 vmware_workstation.png|none|(vmware|workstation[[:space:]]+pro)
-ubuntu_server_iso.png|none|ubuntu;;server;;(iso|\.iso)
+ubuntu_server_iso.png|none|ubuntu;;server;;(iso|amd64|arm64)
 available_storage.png|none|(free|available);;(gb|gib|storage|space)
 vm_creation_wizard.png|none|(new[[:space:]]+virtual[[:space:]]+machine|virtual[[:space:]]+machine[[:space:]]+wizard)
 vm_typical_configuration.png|none|typical;;recommended
 vm_ubuntu_iso_selected.png|none|(installer[[:space:]]+disc|image[[:space:]]+file|iso);;ubuntu
 vm_configuration_summary.png|none|virtual[[:space:]]+machine;;(disk|storage);;(memory|processor|hardware|summary)
-ubuntu_installer_boot.png|none|ubuntu;;(server|install|installer)
+ubuntu_installer_boot.png|none|(ubuntu|gnu[[:space:]]+grub);;(server|install|installer)
 ubuntu_language.png|none|(language|english|welcome)
 ubuntu_keyboard_layout.png|none|keyboard;;layout
 ubuntu_keyboard_variant.png|none|(keyboard|layout);;variant
@@ -140,18 +140,18 @@ ubuntu_installation_type.png|none|ubuntu;;server;;(install|installation|minimize
 ubuntu_network_interface.png|none|(network|connections|dhcp|interface);;(eth[0-9]*|ens[0-9]+|enp[0-9a-z]+|dhcp)
 ubuntu_installer_network.png|ipv4|(network|connections|dhcp|automatic)
 ubuntu_guided_storage.png|none|(guided|use[[:space:]]+an[[:space:]]+entire[[:space:]]+disk|storage)
-ubuntu_storage_configuration.png|none|(storage|filesystem);;(disk|partition|mount)
-ubuntu_selected_disk.png|none|(choose|select);;(disk|install)
-ubuntu_disk_details.png|none|(disk|drive);;([0-9]+([.][0-9]+)?[[:space:]]*(gb|gib)|qemu|vmware)
+ubuntu_storage_configuration.png|none|(storage|file[[:space:]]*system);;(disk|partition|mount|device)
+ubuntu_selected_disk.png|none|(choose|select|available[[:space:]]+devices|used[[:space:]]+devices);;(disk|install|/dev/(sd|vd|nvme))
+ubuntu_disk_details.png|none|(disk|drive|/dev/(sd|vd|nvme));;([0-9]+([.][0-9]+)?[[:space:]]*[kmgt](i?b)?|qemu|vmware)
 ubuntu_partition_layout.png|none|(file[[:space:]]*system|partition|mount[[:space:]]+point);;(size|device)
 ubuntu_storage_warning.png|none|(confirm[[:space:]]+destructive[[:space:]]+action|loss[[:space:]]+of[[:space:]]+data|are[[:space:]]+you[[:space:]]+sure)
 ubuntu_storage_confirmed.png|none|(continue|confirm);;(destructive|installation|changes)
 ubuntu_actual_name.png|none|(profile[[:space:]]+setup|your[[:space:]]+name)
 ubuntu_server_name.png|none|(server.*name|hostname);;ubuntu
 ubuntu_username.png|username|(pick[[:space:]]+a[[:space:]]+username|username)
-ubuntu_profile_setup.png|username|profile[[:space:]]+setup;;ubuntu
+ubuntu_profile_setup.png|username|profile[[:space:]]+(setup|configuration);;ubuntu
 ubuntu_installation_progress.png|none|(installing|installation|system[[:space:]]+install|update)
-ubuntu_installation_complete.png|none|(installation[[:space:]]+complete|reboot[[:space:]]+now)
+ubuntu_installation_complete.png|none|(installation[[:space:]]+complete|finished[[:space:]]+install|reboot[[:space:]]+now|remove[[:space:]]+the[[:space:]]+installation[[:space:]]+(media|medium))
 ubuntu_login_screen.png|none|ubuntu;;login
 ubuntu_terminal_login.png|prompt|(welcome|last[[:space:]]+login|ubuntu)
 ubuntu_identity_verified.png|prompt|ubuntu
@@ -214,9 +214,12 @@ for expected in expected_names:
 PY
 )
 
-# OCR screenshots concurrently. By default, use the runner's available logical
-# CPUs. Each Tesseract process is restricted to one thread so parallel OCR does
-# not oversubscribe the runner. OCR_JOBS cannot exceed available CPUs or 8.
+# OCR screenshots concurrently. Each screenshot is enlarged and rendered in
+# grayscale plus a high-contrast polarity-corrected form. Multiple page
+# segmentation modes are combined because browser pages, Ubuntu text UIs, and
+# terminal prompts have very different layouts. OCR is evidence assistance: an
+# inconclusive result is sent for manual review instead of becoming an
+# automatic zero.
 ocr_dir="$(mktemp -d "/tmp/lab1-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -254,14 +257,44 @@ done |
       filename="$2"
       source_image="$3"
       output_base="$ocr_dir/${filename%.*}"
-      tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
+      gray_image="$output_base.gray.png"
+      binary_image="$output_base.binary.png"
+
+      if python3 - "$source_image" "$gray_image" "$binary_image" <<'"'"'PY'"'"'
+from PIL import Image, ImageOps, ImageStat
+import sys
+
+with Image.open(sys.argv[1]) as opened:
+    source = ImageOps.exif_transpose(opened).convert("RGB")
+
+gray = ImageOps.autocontrast(source.convert("L"), cutoff=1)
+scale = 2 if max(gray.size) < 2400 else 1
+if scale > 1:
+    gray = gray.resize(
+        (gray.width * scale, gray.height * scale),
+        Image.Resampling.LANCZOS,
+    )
+
+gray.save(sys.argv[2])
+binary_source = ImageOps.invert(gray) if ImageStat.Stat(gray).mean[0] < 127 else gray
+binary_source.point(lambda value: 255 if value > 100 else 0).save(sys.argv[3])
+PY
+      then
+        : > "$output_base.txt"
+        tesseract "$gray_image" stdout --psm 6 2>/dev/null >> "$output_base.txt" || true
+        tesseract "$gray_image" stdout --psm 11 2>/dev/null >> "$output_base.txt" || true
+        tesseract "$binary_image" stdout --psm 12 2>/dev/null >> "$output_base.txt" || true
+      else
+        tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
+      fi
     ' _ "$ocr_dir"
 
 # Create one duplicate index for the complete grading run. Screenshots with
-# the same task filename are compared across students. Exact copies are
-# rejected for every task. Perceptual near-duplicate checks are limited to
-# identity-bearing screenshots because ordinary Ubuntu installer screens can
-# legitimately look almost identical for different students.
+# the same task filename are compared across students. Exact and perceptual
+# matches are review signals rather than automatic failures because the hash
+# alone cannot identify which student owns the original. Perceptual checks are
+# limited to identity-bearing screenshots because ordinary Ubuntu installer
+# screens can legitimately look almost identical for different students.
 repo_root="$(git -C "$submission_dir" rev-parse --show-toplevel 2>/dev/null || true)"
 duplicate_index=""
 
@@ -326,7 +359,11 @@ def exact_hash(path):
 def dhash(path):
     with Image.open(path) as source:
         image = ImageOps.exif_transpose(source).convert("L").resize((9, 8))
-        pixels = list(image.getdata())
+        pixels = list(
+            image.get_flattened_data()
+            if hasattr(image, "get_flattened_data")
+            else image.getdata()
+        )
     value = 0
     for row in range(8):
         for column in range(8):
@@ -378,6 +415,7 @@ if [[ -d "$submission_dir/images/install-ubuntu-server" ]]; then
 fi
 
 passed=0
+manual_review=0
 feedback=()
 
 for rule in "${criteria[@]}"; do
@@ -416,11 +454,11 @@ PY
   fi
 
   canonical_image="$(realpath "$image")"
+  review_reasons=()
   if [[ -n "$duplicate_index" && -s "$duplicate_index" ]]; then
     duplicate_reason="$(awk -F '\t' -v path="$canonical_image" '$1 == path {print $2; exit}' "$duplicate_index")"
     if [[ -n "$duplicate_reason" ]]; then
-      feedback+=("$filename: $duplicate_reason (0)")
-      continue
+      review_reasons+=("$duplicate_reason")
     fi
   fi
 
@@ -431,50 +469,67 @@ PY
   fi
 
   if [[ -z "${ocr_text//[[:space:]]/}" ]]; then
-    feedback+=("$filename: unreadable OCR (0)")
-    continue
-  fi
+    review_reasons+=("OCR could not read the submitted image")
+  else
+    # Repair common OCR spacing around IPv4 separators and build a compact form
+    # for usernames/prompts that Tesseract may split across character boxes.
+    ocr_normalized="$(
+      printf '%s' "$ocr_text" |
+        sed -E \
+          -e 's/([0-9])[[:space:]]*[.,][[:space:]]*([0-9])/\1.\2/g' \
+          -e 's/([0-9])[[:space:]]*[.,][[:space:]]*([0-9])/\1.\2/g'
+    )"
+    ocr_compact="$(printf '%s' "$ocr_normalized" | tr -d '[:space:]')"
 
-  if [[ ",$identity_flags," == *,username,* ]]; then
-    if ! grep -Eqi "(^|[^[:alnum:]-])${escaped_username}([^[:alnum:]-]|$)" <<<"$ocr_text"; then
-      feedback+=("$filename: GitHub username was not clearly detected (0)")
-      continue
+    if [[ ",$identity_flags," == *,username,* ]]; then
+      if ! grep -Eqi "(^|[^[:alnum:]-])${escaped_username}([^[:alnum:]-]|$)" <<<"$ocr_normalized" &&
+        ! grep -Fqi -- "$normalized_username" <<<"$ocr_compact"; then
+        review_reasons+=("GitHub username was not confidently detected")
+      fi
     fi
-  fi
 
-  if [[ ",$identity_flags," == *,prompt,* ]]; then
-    if ! grep -Eqi "${escaped_username}[[:space:]]*@[[:space:]]*ubuntu" <<<"$ocr_text"; then
-      feedback+=("$filename: ${github_username}@ubuntu prompt was not clearly detected (0)")
-      continue
+    if [[ ",$identity_flags," == *,prompt,* ]]; then
+      if ! grep -Fqi -- "${normalized_username}@ubuntu" <<<"$ocr_compact"; then
+        review_reasons+=("${github_username}@ubuntu prompt was not confidently detected")
+      fi
     fi
-  fi
 
-  if [[ ",$identity_flags," == *,ipv4,* ]]; then
-    if ! grep -Eo '([0-9]{1,3}[.]){3}[0-9]{1,3}' <<<"$ocr_text" |
-      grep -Ev '^(127\.|0\.0\.0\.0$|255\.255\.255\.255$)' >/dev/null; then
-      feedback+=("$filename: non-loopback IPv4 address was not clearly detected (0)")
-      continue
+    if [[ ",$identity_flags," == *,ipv4,* ]]; then
+      if ! grep -Eo '([0-9]{1,3}[.]){3}[0-9]{1,3}' <<<"$ocr_normalized" |
+        awk -F. '
+          $1 <= 255 && $2 <= 255 && $3 <= 255 && $4 <= 255 &&
+          $1 != 127 && $0 != "0.0.0.0" && $0 != "255.255.255.255" { found = 1 }
+          END { exit !found }
+        '; then
+        review_reasons+=("non-loopback IPv4 address was not confidently detected")
+      fi
     fi
-  fi
 
-  evidence_ok=true
-  missing_evidence=""
-  while IFS= read -r evidence_pattern; do
-    [[ -z "$evidence_pattern" ]] && continue
-    if ! grep -Eqi -- "$evidence_pattern" <<<"$ocr_text"; then
-      evidence_ok=false
-      missing_evidence="$evidence_pattern"
-      break
+    evidence_ok=true
+    while IFS= read -r evidence_pattern; do
+      [[ -z "$evidence_pattern" ]] && continue
+      if ! grep -Eqi -- "$evidence_pattern" <<<"$ocr_normalized"; then
+        evidence_ok=false
+        break
+      fi
+    done < <(printf '%s\n' "$evidence_groups" | sed 's/;;/\n/g')
+
+    if [[ "$evidence_ok" != true ]]; then
+      review_reasons+=("required task evidence was not confidently detected")
     fi
-  done < <(printf '%s\n' "$evidence_groups" | sed 's/;;/\n/g')
-
-  if [[ "$evidence_ok" != true ]]; then
-    feedback+=("$filename: required task evidence was not detected (0)")
-    continue
   fi
 
   passed=$((passed + 1))
-  feedback+=("$filename: passed")
+  if (( ${#review_reasons[@]} > 0 )); then
+    manual_review=$((manual_review + 1))
+    review_summary="${review_reasons[0]}"
+    for ((review_index = 1; review_index < ${#review_reasons[@]}; review_index++)); do
+      review_summary+=", ${review_reasons[$review_index]}"
+    done
+    feedback+=("$filename: manual review recommended - $review_summary (provisional credit)")
+  else
+    feedback+=("$filename: passed")
+  fi
 done
 
 # Lab1_Solution.pdf is one additional equal-weight deliverable.
@@ -506,10 +561,18 @@ print(value)
 PY
 )"
 
-summary="Passed $passed/$required Lab 01 checks. $(IFS='; '; echo "${feedback[*]}")"
+if (( manual_review > 0 )); then
+  review_note="; $manual_review check(s) received provisional credit and require manual review"
+else
+  review_note=""
+fi
+
+summary="Passed $passed/$required Lab 01 checks${review_note}. $(IFS='; '; echo "${feedback[*]}")"
 node -e '
   console.log(JSON.stringify({
     score: Number(process.argv[1]),
-    feedback: process.argv[2]
+    feedback: process.argv[2],
+    review_required: Number(process.argv[3]) > 0,
+    review_count: Number(process.argv[3])
   }))
-' "$score" "$summary"
+' "$score" "$summary" "$manual_review"

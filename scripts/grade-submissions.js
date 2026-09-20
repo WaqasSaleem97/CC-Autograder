@@ -42,8 +42,10 @@ for (const student of students) {
   }
   const total = Number(config.totalMarks);
   const obtained = status === "graded" ? Number(testResult.score) : null;
+  const reviewCount = status === "graded" ? Number(testResult.review_count || 0) : 0;
   if (status === "graded" && (!Number.isFinite(obtained) || obtained < 0 || obtained > total)) throw new Error(`Invalid score for ${username}: ${obtained}/${total}`);
-  results.push({ firebase_uid: student.firebase_uid, enrollment_path: student.enrollment_path, registration_number: student.registration_number, github_username: username, course_code: config.courseCode, category: config.category, assessment: config.assessment, status, obtained, total, feedback: String(testResult.feedback || ""), repository: `${username}/${config.repositoryName}`, submission_path: config.submissionPath, graded_at: new Date().toISOString() });
+  if (!Number.isInteger(reviewCount) || reviewCount < 0) throw new Error(`Invalid manual-review count for ${username}: ${testResult.review_count}`);
+  results.push({ firebase_uid: student.firebase_uid, enrollment_path: student.enrollment_path, registration_number: student.registration_number, github_username: username, course_code: config.courseCode, category: config.category, assessment: config.assessment, status, obtained, total, review_required: reviewCount > 0, review_count: reviewCount, feedback: String(testResult.feedback || ""), repository: `${username}/${config.repositoryName}`, submission_path: config.submissionPath, graded_at: new Date().toISOString() });
 }
 mkdirSync(path.join(root, "results"), { recursive: true });
 writeFileSync(path.join(root, "results/grading-results.json"), `${JSON.stringify(results, null, 2)}\n`);

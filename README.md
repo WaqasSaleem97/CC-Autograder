@@ -27,8 +27,8 @@ When starting the grading workflow, enable `send_email_results`. The trusted
 publishing job reloads current student records from Firestore and sends one
 private message per valid student email address. Each message contains the
 score, summary, repository, grading time, and a table of every passed, missing,
-or failed check. Students with no valid email address are skipped without
-printing their address. Keep the option disabled when rerunning a workflow
+manual-review, or failed check. Students with no valid email address are
+skipped without printing their address. Keep the option disabled when rerunning a workflow
 unless the result emails should be sent again.
 
 ## Student selection
@@ -56,6 +56,12 @@ Create different trusted scripts for Git/GitHub, Linux, AWS configuration, Terra
 For Lab 01, GitHub usernames are normalized to lowercase before Ubuntu identity
 checks. Screenshot extensions are ignored, including repeated image extensions
 such as `.png.png`; the required filename before the extension must still match.
+Lab 01 screenshots are enlarged and checked with multiple OCR layouts. Missing,
+ambiguous, corrupt, and copied instructor-reference files receive zero. When a
+valid submitted image cannot be read confidently, or duplicate detection needs
+an instructor decision, it receives provisional credit and is labeled `Manual
+review` in the result instead of receiving an automatic zero. Confirm the
+provisional score after reviewing every flagged image.
 
 ## Install and verify
 

@@ -29,6 +29,8 @@ for (const result of results) {
   }
   if (result.status !== "graded") throw new Error(`Unknown grading status for ${result.github_username}.`);
   if (!Number.isFinite(result.obtained) || result.obtained < 0 || result.total !== config.totalMarks || result.obtained > result.total) throw new Error("Invalid marks.");
+  const reviewCount = Number(result.review_count || 0);
+  if (!Number.isInteger(reviewCount) || reviewCount < 0) throw new Error("Invalid manual-review count.");
   const ref = db.doc(student.enrollment_path);
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
@@ -40,7 +42,7 @@ for (const result of results) {
     let category = categories.find((c) => String(c.name).toLowerCase() === config.category.toLowerCase());
     if (!category) { category = { name: config.category, items: [] }; categories.push(category); }
     if (!Array.isArray(category.items)) category.items = [];
-    const marks = { name: config.assessment, obtained: result.obtained, total: result.total, feedback: result.feedback, repository: result.repository, graded_at: result.graded_at };
+    const marks = { name: config.assessment, obtained: result.obtained, total: result.total, review_required: reviewCount > 0, review_count: reviewCount, feedback: result.feedback, repository: result.repository, graded_at: result.graded_at };
     const existing = category.items.find((item) => String(item.name).toLowerCase() === config.assessment.toLowerCase());
     if (existing) Object.assign(existing, marks); else category.items.push(marks);
     transaction.update(ref, { marks: { categories }, updated_at: FieldValue.serverTimestamp() });
