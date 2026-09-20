@@ -53,12 +53,18 @@ The final output line must be JSON:
 
 Create different trusted scripts for Git/GitHub, Linux, AWS configuration, Terraform, Ansible, and Docker assessments. Never place Firebase or AWS credentials in the grading job.
 
-For Lab 01 and Lab 02, GitHub usernames are normalized to lowercase before
-Ubuntu identity checks. Screenshot extensions are ignored, including repeated
-image extensions such as `.png.png`; the required filename before the extension
-must still match. Shared OCR preprocessing checks browser pages, terminals, and
-bright fields in the dark Ubuntu installer UI. It tolerates a small number of
-OCR character errors in long usernames without accepting unrelated identities.
+For every screenshot-based assessment, the grading workflow normalizes
+screenshot filenames inside its disposable repository clones before running the
+trusted test. Filename capitalization and image-extension capitalization are
+ignored, and repeated image extensions such as `.png.png` are accepted. The
+required filename before the extension must still match. Students' GitHub
+repositories are never modified by this normalization.
+
+For Lab 01 and Lab 02, GitHub usernames are also normalized to lowercase before
+Ubuntu identity checks. Shared OCR preprocessing checks browser pages,
+terminals, and bright fields in the dark Ubuntu installer UI. It tolerates a
+small number of OCR character errors in long usernames without accepting
+unrelated identities.
 
 Lab 01 now makes automatic pass/fail decisions for missing, ambiguous, corrupt,
 unreadable, wrong-task, wrong-identity, and copied instructor-reference files.
