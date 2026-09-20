@@ -110,14 +110,14 @@ normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:
 # The <GitHub username>@ubuntu identity check is applied to every screenshot.
 readarray -t criteria <<'EOF'
 git_installation.png|git;;(version|install)
-repo_private.png|private;;repository
+repo_private.png|cc[._[:space:]-]*lab[._[:space:]-]*0?2[._[:space:]-]*practice;;private
 ssh_keygen.png|ssh-keygen;;ed25519
 github_sshkey.png|ssh;;key;;github
 ssh_clone.png|git[[:space:]]+clone;;git@github[.]com
-git_identity.png|git[[:space:]]+config;;user[.](name|email)
-git_config_list.png|git[[:space:]]+config;;user[.](name|email)
+git_identity.png|git[[:space:]]+config;;user[._[:space:]-]*name;;user[._[:space:]-]*email
+git_config_list.png|git[[:space:]]+config;;user[._[:space:]-]*name;;user[._[:space:]-]*email
 git_folder.png|[.]git;;HEAD;;objects;;refs
-delete_git.png|rm[[:space:]]+-rf[[:space:]]+[.]git
+delete_git.png|rm[[:space:]]+-rf[[:space:]]+[.]git;;git[[:space:]]+status;;(fatal|not.*git.*repository)
 git_init.png|git[[:space:]]+init;;initialized.*git repository
 first_commit.png|initial commit;;README[.]md
 first_push.png|git[[:space:]]+push;;origin;;main
@@ -125,7 +125,7 @@ status1.png|git[[:space:]]+status;;(untracked|modified)
 commit_notes.png|notes[.]txt;;commit
 bugfix_branch_gui.png|bugfix/user-auth-error
 bugfix_branch_local.png|bugfix/user-auth-error;;branch
-feature_db_branch.png|feature/db-connection;;git[[:space:]]+push
+feature_db_branch.png|feature/db-connection;;git[[:space:]]+(checkout|switch);;git[[:space:]]+push
 branch_create.png|feature-1;;(checkout|switch)
 feature_commit.png|main[.]py;;new function;;commit
 merge.png|git[[:space:]]+merge;;feature-1
@@ -136,7 +136,7 @@ branch_delete.png|deleted;;feature/db-connection
 branch_strategy.png|develop;;staging;;feature;;bugfix
 branch_merges.png|develop;;staging;;merge
 final_merge.png|staging;;main;;merge
-pr_create_details.png|pull request;;title;;description
+pr_create_details.png|pull[[:space:]]+request;;main
 pr_assigned_reviewer.png|reviewer;;pull request
 pr_request_changes.png|(changes requested|request changes)
 pr_rejected.png|(closed|rejected)
@@ -145,7 +145,7 @@ pr_merge_confirm.png|merge;;pull request
 pr_merged.png|merged;;pull request
 pr_branch_deleted.png|deleted;;branch
 remote_branch_deleted.png|deleted;;remote;;branch
-remote_branch_delete_cmd.png|git[[:space:]]+push;;--delete;;branch
+remote_branch_delete_cmd.png|git[[:space:]]+push;;origin;;--delete
 EOF
 
 required_screenshots=${#criteria[@]}
