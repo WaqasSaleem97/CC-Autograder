@@ -5,7 +5,7 @@ import { parseFeedback, statusColors } from "../scripts/feedback-report.js";
 test("parses provisional Lab1 credit as a manual-review result", () => {
   const report = parseFeedback(
     "Passed 44/45 Lab 01 checks; 1 check(s) received provisional credit and require manual review. "
-    + "ubuntu_username.png: manual review recommended - GitHub username was not confidently detected, required task evidence was not confidently detected (provisional credit);"
+    + "ubuntu_username.png: manual review required - exact duplicate of another student's same task (provisional credit);"
     + "lab01_folder_structure.png: missing (0);github_profile.png: passed"
   );
 
@@ -17,7 +17,7 @@ test("parses provisional Lab1 credit as a manual-review result", () => {
     {
       name: "ubuntu_username.png",
       status: "Manual review",
-      details: "GitHub username was not confidently detected, required task evidence was not confidently detected."
+      details: "Exact duplicate of another student's same task."
     },
     {
       name: "lab01_folder_structure.png",

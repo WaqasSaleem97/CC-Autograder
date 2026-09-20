@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check scripts/create-config.js && node --check scripts/load-students.js && node --check scripts/collect-submissions.js && node --check scripts/grade-submissions.js && node --check scripts/show-results.js && node --check scripts/update-firestore.js && node --check scripts/email-results.js && node --check scripts/feedback-report.js && bash -n tests/Lab1/test.sh && node --test tests/feedback-report.test.js"
+    "check": "node --check scripts/create-config.js && node --check scripts/load-students.js && node --check scripts/collect-submissions.js && node --check scripts/grade-submissions.js && node --check scripts/show-results.js && node --check scripts/update-firestore.js && node --check scripts/email-results.js && node --check scripts/feedback-report.js && python3 -m py_compile scripts/ocr_screenshot.py scripts/ocr_evidence.py scripts/resolve_screenshots.py && python3 tests/ocr_helpers_test.py && bash -n tests/Lab1/test.sh && bash -n tests/Lab2/test.sh && node --test tests/feedback-report.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.4.0",

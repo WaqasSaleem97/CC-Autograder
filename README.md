@@ -53,15 +53,19 @@ The final output line must be JSON:
 
 Create different trusted scripts for Git/GitHub, Linux, AWS configuration, Terraform, Ansible, and Docker assessments. Never place Firebase or AWS credentials in the grading job.
 
-For Lab 01, GitHub usernames are normalized to lowercase before Ubuntu identity
-checks. Screenshot extensions are ignored, including repeated image extensions
-such as `.png.png`; the required filename before the extension must still match.
-Lab 01 screenshots are enlarged and checked with multiple OCR layouts. Missing,
-ambiguous, corrupt, and copied instructor-reference files receive zero. When a
-valid submitted image cannot be read confidently, or duplicate detection needs
-an instructor decision, it receives provisional credit and is labeled `Manual
-review` in the result instead of receiving an automatic zero. Confirm the
-provisional score after reviewing every flagged image.
+For Lab 01 and Lab 02, GitHub usernames are normalized to lowercase before
+Ubuntu identity checks. Screenshot extensions are ignored, including repeated
+image extensions such as `.png.png`; the required filename before the extension
+must still match. Shared OCR preprocessing checks browser pages, terminals, and
+bright fields in the dark Ubuntu installer UI. It tolerates a small number of
+OCR character errors in long usernames without accepting unrelated identities.
+
+Lab 01 now makes automatic pass/fail decisions for missing, ambiguous, corrupt,
+unreadable, wrong-task, wrong-identity, and copied instructor-reference files.
+Only a byte-identical screenshot shared by multiple students keeps provisional
+credit and requests manual review, because automation cannot reliably identify
+the original owner. Perceptually similar standard installer screens are not
+flagged as duplicates.
 
 ## Install and verify
 

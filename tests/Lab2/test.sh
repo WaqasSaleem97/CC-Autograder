@@ -63,6 +63,7 @@ fi
 
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if [[ ! -d "$screenshots_dir" ]]; then
   json_error "Required directory is missing: Labs/Lab02/screenshots"
@@ -101,7 +102,6 @@ if [[ ! "$github_username" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] |
 fi
 
 normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
-escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()]/\\&/g')"
 
 # This list must match the 37 mandatory files in
 # CC_F26/Labs/Lab02/README.md. Bonus and exam-practice screenshots are not
@@ -153,6 +153,21 @@ if (( required_screenshots != 37 )); then
   json_error "Trusted Lab 2 grader configuration must contain exactly 37 mandatory screenshot checks."
 fi
 
+# Resolve the required filename by stem. Case and image extensions (including
+# repeated extensions such as .png.png) do not affect the match.
+expected_screenshots=()
+for rule in "${criteria[@]}"; do
+  expected_screenshots+=("${rule%%|*}")
+done
+
+declare -A resolved_screenshots
+while IFS=$'\t' read -r expected actual; do
+  resolved_screenshots["$expected"]="$actual"
+done < <(
+  python3 "$grader_root/scripts/resolve_screenshots.py" \
+    "$screenshots_dir" "${expected_screenshots[@]}"
+)
+
 # OCR screenshots concurrently. By default, use the runner's available logical
 # CPUs. OCR_JOBS may request fewer workers but cannot exceed available CPUs or 8.
 ocr_dir="$(mktemp -d "/tmp/lab2-ocr-${normalized_username}.XXXXXX")"
@@ -177,17 +192,19 @@ if (( ocr_jobs > 8 )); then
   ocr_jobs=8
 fi
 
-printf '%s\n' "${criteria[@]}" |
-  cut -d'|' -f1 |
-  while IFS= read -r filename; do
-    [[ -f "$screenshots_dir/$filename" ]] && printf '%s\n' "$filename"
-  done |
-  xargs -r -P "$ocr_jobs" -I '{}' \
+for rule in "${criteria[@]}"; do
+  filename="${rule%%|*}"
+  image="${resolved_screenshots[$filename]:-}"
+  [[ -f "$image" ]] && printf '%s\0%s\0' "$filename" "$image"
+done |
+  xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
-      source_image="$1/$2"
-      output_base="$3/${2%.*}"
-      tesseract "$source_image" "$output_base" --psm 6 2>/dev/null || true
-    ' _ "$screenshots_dir" '{}' "$ocr_dir"
+      ocr_dir="$1"
+      helper="$2"
+      filename="$3"
+      source_image="$4"
+      python3 "$helper" "$source_image" "$ocr_dir/${filename%.*}.txt"
+    ' _ "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
 
 # Create one duplicate index for the complete grading run. Screenshots with the
 # same filename are compared between students. Exact hashes and perceptual dHash
@@ -214,14 +231,25 @@ root = pathlib.Path(sys.argv[1]).resolve()
 relative = pathlib.PurePosixPath(sys.argv[2])
 output = pathlib.Path(sys.argv[3])
 groups = defaultdict(list)
+image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif")
+
+def filename_key(name):
+    value = name.casefold().rstrip(".")
+    while True:
+        for extension in image_extensions:
+            if value.endswith(extension):
+                value = value[:-len(extension)].rstrip(".")
+                break
+        else:
+            return value
 
 for repository in root.glob("*/*"):
     screenshot_dir = repository.joinpath(*relative.parts)
     if not screenshot_dir.is_dir():
         continue
     for image in screenshot_dir.iterdir():
-        if image.is_file() and image.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-            groups[image.name.lower()].append(image.resolve())
+        if image.is_file():
+            groups[filename_key(image.name)].append(image.resolve())
 
 def exact_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -277,9 +305,14 @@ feedback=()
 for rule in "${criteria[@]}"; do
   filename="${rule%%|*}"
   evidence_groups="${rule#*|}"
-  image="$screenshots_dir/$filename"
+  image="${resolved_screenshots[$filename]:-}"
 
-  if [[ ! -f "$image" ]]; then
+  if [[ "$image" == "__AMBIGUOUS__" ]]; then
+    feedback+=("$filename: multiple files have this name when extensions are ignored (0)")
+    continue
+  fi
+
+  if [[ -z "$image" || ! -f "$image" ]]; then
     feedback+=("$filename: missing (0)")
     continue
   fi
@@ -316,7 +349,8 @@ PY
     continue
   fi
 
-  if ! grep -Eqi "${escaped_username}[[:space:]]*@[[:space:]]*ubuntu" <<<"$ocr_text"; then
+  if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+    prompt "$normalized_username" "$ocr_file"; then
     feedback+=("$filename: ${github_username}@ubuntu was not clearly detected (0)")
     continue
   fi

@@ -66,6 +66,7 @@ fi
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
 solution_pdf="$submission_dir/Lab1_Solution.pdf"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if [[ ! -d "$screenshots_dir" ]]; then
   json_error "Required directory is missing: Labs/Lab01/screenshots"
@@ -105,7 +106,6 @@ fi
 
 github_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
 normalized_username="$github_username"
-escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()]/\\&/g')"
 
 # Format:
 # filename|identity checks|OCR evidence groups separated by ;;
@@ -124,7 +124,7 @@ github_profile.png|username|(overview|repositories|projects|followers|following|
 github_actual_name.png|none|(public[[:space:]]+profile|edit[[:space:]]+profile|profile);;name
 portal_login_page.png|none|(student.*marks|marks.*portal|continue[[:space:]]+with[[:space:]]+github)
 portal_github_profile.png|username|(profile|account|github)
-portal_enrollment_submitted.png|none|20[0-9]{2}[-[:space:]][a-z]{2,4}[-[:space:]][0-9]{1,3};;(pending|submitted|approval|enrollment);;(course|section)
+portal_enrollment_submitted.png|none|20[0-9]{2}[-[:space:]][a-z]{2,4}[-[:space:]][0-9]{1,3};;(pending|submitted|approved|approval|enrollment);;(course|section)
 vmware_workstation.png|none|(vmware|workstation[[:space:]]+pro)
 ubuntu_server_iso.png|none|ubuntu;;server;;(iso|amd64|arm64)
 available_storage.png|none|(free|available);;(gb|gib|storage|space)
@@ -161,7 +161,7 @@ windows_ssh_command.png|username|ssh[[:space:]]+[^[:space:]]+@([0-9]{1,3}[.]){3}
 windows_ssh_fingerprint.png|username|(authenticity|fingerprint|continue[[:space:]]+connecting|yes)
 windows_ssh_login.png|prompt|(welcome|last[[:space:]]+login|ubuntu)
 windows_ssh_identity.png|prompt|ubuntu
-solution_title_page.png|username|lab[[:space:]]*0?1;;20[0-9]{2}[-[:space:]][a-z]{2,4}[-[:space:]][0-9]{1,3};;(course|section)
+solution_title_page.png|username|lab[[:space:]]*(number|no)?[[:space:]:_-]*0?1;;registration[[:space:]]*(number|no);;(course|section)
 lab1_solution_pdf.png|none|lab[[:space:]_]*1[[:space:]_]*solution;;pdf
 EOF
 
@@ -178,48 +178,14 @@ done
 declare -A resolved_screenshots
 while IFS=$'\t' read -r expected actual; do
   resolved_screenshots["$expected"]="$actual"
-done < <(python3 - "$screenshots_dir" "${expected_screenshots[@]}" <<'PY'
-import pathlib
-import sys
-from collections import defaultdict
-
-directory = pathlib.Path(sys.argv[1])
-expected_names = sys.argv[2:]
-image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif")
-
-def filename_key(name):
-    value = name.casefold().rstrip(".")
-    while True:
-        for extension in image_extensions:
-            if value.endswith(extension):
-                value = value[:-len(extension)].rstrip(".")
-                break
-        else:
-            return value
-
-files = defaultdict(list)
-for candidate in directory.iterdir():
-    if candidate.is_file() and "\t" not in candidate.name and "\n" not in candidate.name:
-        files[filename_key(candidate.name)].append(candidate.resolve())
-
-for expected in expected_names:
-    matches = sorted(files.get(filename_key(expected), []))
-    if len(matches) == 1:
-        resolved = str(matches[0])
-    elif len(matches) > 1:
-        resolved = "__AMBIGUOUS__"
-    else:
-        resolved = ""
-    print(f"{expected}\t{resolved}")
-PY
+done < <(
+  python3 "$grader_root/scripts/resolve_screenshots.py" \
+    "$screenshots_dir" "${expected_screenshots[@]}"
 )
 
-# OCR screenshots concurrently. Each screenshot is enlarged and rendered in
-# grayscale plus a high-contrast polarity-corrected form. Multiple page
-# segmentation modes are combined because browser pages, Ubuntu text UIs, and
-# terminal prompts have very different layouts. OCR is evidence assistance: an
-# inconclusive result is sent for manual review instead of becoming an
-# automatic zero.
+# OCR screenshots concurrently. The shared helper combines browser/terminal
+# layouts and separately extracts bright Ubuntu-installer input fields. Later
+# labs can use the same helper instead of maintaining their own OCR pipeline.
 ocr_dir="$(mktemp -d "/tmp/lab1-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -254,47 +220,17 @@ done |
   xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
       ocr_dir="$1"
-      filename="$2"
-      source_image="$3"
-      output_base="$ocr_dir/${filename%.*}"
-      gray_image="$output_base.gray.png"
-      binary_image="$output_base.binary.png"
+      helper="$2"
+      filename="$3"
+      source_image="$4"
+      python3 "$helper" "$source_image" "$ocr_dir/${filename%.*}.txt"
+    ' _ "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
 
-      if python3 - "$source_image" "$gray_image" "$binary_image" <<'"'"'PY'"'"'
-from PIL import Image, ImageOps, ImageStat
-import sys
-
-with Image.open(sys.argv[1]) as opened:
-    source = ImageOps.exif_transpose(opened).convert("RGB")
-
-gray = ImageOps.autocontrast(source.convert("L"), cutoff=1)
-scale = 2 if max(gray.size) < 2400 else 1
-if scale > 1:
-    gray = gray.resize(
-        (gray.width * scale, gray.height * scale),
-        Image.Resampling.LANCZOS,
-    )
-
-gray.save(sys.argv[2])
-binary_source = ImageOps.invert(gray) if ImageStat.Stat(gray).mean[0] < 127 else gray
-binary_source.point(lambda value: 255 if value > 100 else 0).save(sys.argv[3])
-PY
-      then
-        : > "$output_base.txt"
-        tesseract "$gray_image" stdout --psm 6 2>/dev/null >> "$output_base.txt" || true
-        tesseract "$gray_image" stdout --psm 11 2>/dev/null >> "$output_base.txt" || true
-        tesseract "$binary_image" stdout --psm 12 2>/dev/null >> "$output_base.txt" || true
-      else
-        tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
-      fi
-    ' _ "$ocr_dir"
-
-# Create one duplicate index for the complete grading run. Screenshots with
-# the same task filename are compared across students. Exact and perceptual
-# matches are review signals rather than automatic failures because the hash
-# alone cannot identify which student owns the original. Perceptual checks are
-# limited to identity-bearing screenshots because ordinary Ubuntu installer
-# screens can legitimately look almost identical for different students.
+# Create one duplicate index for the complete grading run. Only byte-identical
+# files are review signals. Perceptual hashes are deliberately not used here:
+# standard installer screens can legitimately look nearly identical. An exact
+# cross-student match is the one exceptional case automation cannot assign to
+# an owner fairly, so it keeps provisional credit and requests review.
 repo_root="$(git -C "$submission_dir" rev-parse --show-toplevel 2>/dev/null || true)"
 duplicate_index=""
 
@@ -311,7 +247,7 @@ import itertools
 import pathlib
 import sys
 from collections import defaultdict
-from PIL import Image, ImageOps
+from PIL import Image
 
 root = pathlib.Path(sys.argv[1]).resolve()
 relative = pathlib.PurePosixPath(sys.argv[2])
@@ -329,22 +265,6 @@ def filename_key(name):
         else:
             return value
 
-identity_files = {
-    "github_profile",
-    "portal_github_profile",
-    "ubuntu_username",
-    "ubuntu_profile_setup",
-    "ubuntu_terminal_login",
-    "ubuntu_identity_verified",
-    "ubuntu_ip_addr_command",
-    "ubuntu_ip_address",
-    "windows_ssh_command",
-    "windows_ssh_fingerprint",
-    "windows_ssh_login",
-    "windows_ssh_identity",
-    "solution_title_page",
-}
-
 for repository in root.glob("*/*"):
     screenshot_dir = repository.joinpath(*relative.parts)
     if not screenshot_dir.is_dir():
@@ -356,45 +276,21 @@ for repository in root.glob("*/*"):
 def exact_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-def dhash(path):
-    with Image.open(path) as source:
-        image = ImageOps.exif_transpose(source).convert("L").resize((9, 8))
-        pixels = list(
-            image.get_flattened_data()
-            if hasattr(image, "get_flattened_data")
-            else image.getdata()
-        )
-    value = 0
-    for row in range(8):
-        for column in range(8):
-            value = (value << 1) | (
-                pixels[row * 9 + column] > pixels[row * 9 + column + 1]
-            )
-    return value
-
 duplicates = {}
 for filename, paths in groups.items():
     fingerprints = {}
     for image in paths:
         try:
-            fingerprints[image] = (exact_hash(image), dhash(image))
+            with Image.open(image) as opened:
+                opened.verify()
+            fingerprints[image] = exact_hash(image)
         except Exception:
             continue
 
     for left, right in itertools.combinations(fingerprints, 2):
-        left_sha, left_dhash = fingerprints[left]
-        right_sha, right_dhash = fingerprints[right]
-
-        if left_sha == right_sha:
+        if fingerprints[left] == fingerprints[right]:
             duplicates[left] = "exact duplicate of another student's same task"
             duplicates[right] = "exact duplicate of another student's same task"
-            continue
-
-        if filename in identity_files:
-            distance = (left_dhash ^ right_dhash).bit_count()
-            if distance <= 2:
-                duplicates[left] = "near-duplicate of another student's identity evidence"
-                duplicates[right] = "near-duplicate of another student's identity evidence"
 
 output.write_text(
     "".join(f"{path}\t{reason}\n" for path, reason in sorted(duplicates.items())),
@@ -454,6 +350,7 @@ PY
   fi
 
   canonical_image="$(realpath "$image")"
+  failure_reasons=()
   review_reasons=()
   if [[ -n "$duplicate_index" && -s "$duplicate_index" ]]; then
     duplicate_reason="$(awk -F '\t' -v path="$canonical_image" '$1 == path {print $2; exit}' "$duplicate_index")"
@@ -469,28 +366,27 @@ PY
   fi
 
   if [[ -z "${ocr_text//[[:space:]]/}" ]]; then
-    review_reasons+=("OCR could not read the submitted image")
+    failure_reasons+=("OCR could not read the submitted image")
   else
-    # Repair common OCR spacing around IPv4 separators and build a compact form
-    # for usernames/prompts that Tesseract may split across character boxes.
+    # Repair common OCR spacing around IPv4 separators.
     ocr_normalized="$(
       printf '%s' "$ocr_text" |
         sed -E \
           -e 's/([0-9])[[:space:]]*[.,][[:space:]]*([0-9])/\1.\2/g' \
           -e 's/([0-9])[[:space:]]*[.,][[:space:]]*([0-9])/\1.\2/g'
     )"
-    ocr_compact="$(printf '%s' "$ocr_normalized" | tr -d '[:space:]')"
 
     if [[ ",$identity_flags," == *,username,* ]]; then
-      if ! grep -Eqi "(^|[^[:alnum:]-])${escaped_username}([^[:alnum:]-]|$)" <<<"$ocr_normalized" &&
-        ! grep -Fqi -- "$normalized_username" <<<"$ocr_compact"; then
-        review_reasons+=("GitHub username was not confidently detected")
+      if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+        username "$normalized_username" "$ocr_file"; then
+        failure_reasons+=("GitHub username was not detected")
       fi
     fi
 
     if [[ ",$identity_flags," == *,prompt,* ]]; then
-      if ! grep -Fqi -- "${normalized_username}@ubuntu" <<<"$ocr_compact"; then
-        review_reasons+=("${github_username}@ubuntu prompt was not confidently detected")
+      if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+        prompt "$normalized_username" "$ocr_file"; then
+        failure_reasons+=("${github_username}@ubuntu prompt was not detected")
       fi
     fi
 
@@ -501,7 +397,7 @@ PY
           $1 != 127 && $0 != "0.0.0.0" && $0 != "255.255.255.255" { found = 1 }
           END { exit !found }
         '; then
-        review_reasons+=("non-loopback IPv4 address was not confidently detected")
+        failure_reasons+=("non-loopback IPv4 address was not detected")
       fi
     fi
 
@@ -515,19 +411,26 @@ PY
     done < <(printf '%s\n' "$evidence_groups" | sed 's/;;/\n/g')
 
     if [[ "$evidence_ok" != true ]]; then
-      review_reasons+=("required task evidence was not confidently detected")
+      failure_reasons+=("required task evidence was not detected")
     fi
   fi
 
-  passed=$((passed + 1))
-  if (( ${#review_reasons[@]} > 0 )); then
+  if (( ${#failure_reasons[@]} > 0 )); then
+    failure_summary="${failure_reasons[0]}"
+    for ((failure_index = 1; failure_index < ${#failure_reasons[@]}; failure_index++)); do
+      failure_summary+=", ${failure_reasons[$failure_index]}"
+    done
+    feedback+=("$filename: $failure_summary (0)")
+  elif (( ${#review_reasons[@]} > 0 )); then
+    passed=$((passed + 1))
     manual_review=$((manual_review + 1))
     review_summary="${review_reasons[0]}"
     for ((review_index = 1; review_index < ${#review_reasons[@]}; review_index++)); do
       review_summary+=", ${review_reasons[$review_index]}"
     done
-    feedback+=("$filename: manual review recommended - $review_summary (provisional credit)")
+    feedback+=("$filename: manual review required - $review_summary (provisional credit)")
   else
+    passed=$((passed + 1))
     feedback+=("$filename: passed")
   fi
 done
