@@ -9,7 +9,7 @@ export function parseFeedback(feedback) {
     const name = entry.slice(0, separator).trim();
     const message = entry.slice(separator + 1).trim();
     if (/^passed$/i.test(message)) return { name, status: "Passed", details: "Required evidence detected." };
-    const review = message.match(/^manual review recommended\s*-\s*(.*?)\s*\(provisional credit\)$/i);
+    const review = message.match(/^manual review (?:recommended|required)\s*-\s*(.*?)\s*\(provisional credit\)$/i);
     if (review) return { name, status: "Manual review", details: sentence(review[1]) };
     if (/^missing\s*\(0\)$/i.test(message)) return { name, status: "Missing", details: "Required file was not found." };
     return { name, status: "Failed", details: sentence(stripZero(message)) };
