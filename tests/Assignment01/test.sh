@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-# Grade Assignment 01 screenshot evidence.
+# Grade Assignment 01 required files and screenshot evidence.
 #
 # Usage:
 #   test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME]
@@ -112,26 +112,35 @@ escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()
 # Identity flags:
 #   none      - no username requirement
 #   username  - the student's GitHub username must appear
-#   codespace - username or clear GitHub Codespaces context must appear
+#   ubuntu    - the case-insensitive <github-username>@ubuntu prompt must appear
 #
 # Every ;; separated expression is required. Alternatives inside one expression
 # use normal extended-regex parentheses and |.
 readarray -t criteria <<'EOF'
-task1_gitea_running.png|none|gitea;;(sign[[:space:]]+in|register|dashboard|explore|repositories|home);;(app[.]github[.]dev|codespace|3000)
-task1_gitea_repository.png|none|(gitea|repositories);;readme;;20[0-9]{2}.*[0-9]{1,3}
-task1_gitea_push.png|username|git[[:space:]]+(pull|push);;gitea;;(already[[:space:]]+up[[:space:]]+to[[:space:]]+date|fast-forward|from[[:space:]]+https|new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|main|master)
-task2_github_push.png|codespace|git[[:space:]]+push;;(github|github[.]com);;(main|master|new[[:space:]]+branch|everything[[:space:]]+up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track)
-task2_remotes.png|codespace|git[[:space:]]+remote[[:space:]]+-v;;gitea;;github;;fetch;;push
-task2_github_repository.png|username|(assignment[[:space:]_-]*1|assignment01);;readme;;github
-task3_lfs_setup.png|codespace|git[[:space:]]+lfs[[:space:]]+version;;git[[:space:]]+lfs[[:space:]]+track;;gitattributes
-task3_lfs_files.png|codespace|git[[:space:]]+lfs[[:space:]]+ls-files
-task3_lfs_push.png|codespace|git[[:space:]]+push;;(uploading[[:space:]]+lfs[[:space:]]+objects|lfs[[:space:]]+objects|github);;(100%|3/3|everything[[:space:]]+up-to-date|main|master)
-task4_pages_repository.png|username|github[.]io;;(index[.]html|html);;(css|style|portfolio|cv)
+task1_gitea_running.png|ubuntu|docker[[:space:]]+compose[[:space:]]+ps;;gitea;;(postgres|gitea_db|gitea[[:space:]_-]*db);;(up|running|healthy);;(gitea[[:space:]]+http[[:space:]]+status|http[[:space:]]+status).*200
+task1_gitea_repository.png|none|(gitea|repositories);;(assignment[[:space:]_-]*0?1);;readme;;20[0-9]{2}.*[0-9]{1,3}
+task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+gitea[[:space:]]+main;;gitea;;main;;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+github[[:space:]]+main;;(github|github[.]com);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea;;(127[.]0[.]0[.]1|localhost);;github;;github[.]com;;fetch;;push
+task2_github_repository.png|username|(assignment[[:space:]_-]*0?1);;readme;;github;;public;;20[0-9]{2}.*[0-9]{1,3}
+task3_lfs_setup.png|ubuntu|(git[[:space:]]+lfs[[:space:]]+install|git[[:space:]]+lfs[[:space:]]+initialized);;git[[:space:]]+lfs[[:space:]]+version;;git[[:space:]]+lfs[[:space:]]+track;;gitattributes;;bin
+task3_lfs_files.png|ubuntu|git[[:space:]]+lfs[[:space:]]+ls-files;;[.]bin
+task3_lfs_push.png|ubuntu|git[[:space:]]+push[[:space:]]+github[[:space:]]+main;;(uploading[[:space:]]+lfs[[:space:]]+objects|lfs[[:space:]]+objects);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
+task4_pages_repository.png|username|github[.]io;;index[.]html;;styles[.]css;;public
 task4_pages_deployment.png|username|github[[:space:]]+pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;github[.]io
-task4_portfolio_live.png|username|github[.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|experience|projects)
+task4_portfolio_live.png|username|github[.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|projects)
 EOF
 
 required=${#criteria[@]}
+
+# Required deliverables account for 10% of the score. Filenames are matched
+# case-insensitively, but each file must be a valid non-empty file of its type.
+readarray -t artifact_criteria <<'EOF'
+Assignment01.md|markdown
+Assignment01_Solution.docx|docx
+Assignment01_Solution.pdf|pdf
+EOF
+artifact_required=${#artifact_criteria[@]}
 
 # OCR screenshots concurrently. By default, use all logical CPUs available on
 # the runner. OCR_JOBS may request fewer workers but cannot exceed the available
@@ -226,8 +235,54 @@ PY
   fi
 fi
 
+validate_artifact() {
+  python3 - "$1" "$2" <<'PY' >/dev/null 2>&1
+import pathlib
+import sys
+import zipfile
+
+path = pathlib.Path(sys.argv[1])
+kind = sys.argv[2]
+if not path.is_file() or path.stat().st_size == 0:
+    raise SystemExit(1)
+
+if kind == "markdown":
+    if not path.read_text(encoding="utf-8", errors="ignore").strip():
+        raise SystemExit(1)
+elif kind == "docx":
+    if not zipfile.is_zipfile(path):
+        raise SystemExit(1)
+    with zipfile.ZipFile(path) as document:
+        if "word/document.xml" not in document.namelist():
+            raise SystemExit(1)
+elif kind == "pdf":
+    with path.open("rb") as document:
+        if document.read(5) != b"%PDF-":
+            raise SystemExit(1)
+else:
+    raise SystemExit(1)
+PY
+}
+
+artifact_passed=0
+artifact_feedback=()
+for artifact_rule in "${artifact_criteria[@]}"; do
+  artifact_name="${artifact_rule%%|*}"
+  artifact_kind="${artifact_rule#*|}"
+  artifact_path="$(find "$submission_dir" -maxdepth 1 -type f -iname "$artifact_name" -print -quit)"
+
+  if [[ -z "$artifact_path" ]]; then
+    artifact_feedback+=("$artifact_name: missing required assignment file (0)")
+  elif ! validate_artifact "$artifact_path" "$artifact_kind"; then
+    artifact_feedback+=("$artifact_name: invalid, empty, or unreadable assignment file (0)")
+  else
+    artifact_passed=$((artifact_passed + 1))
+    artifact_feedback+=("$artifact_name: passed")
+  fi
+done
+
 passed=0
-feedback=()
+feedback=("${artifact_feedback[@]}")
 
 for rule in "${criteria[@]}"; do
   filename="${rule%%|*}"
@@ -294,9 +349,9 @@ PY
       identity_pattern="(^|[^[:alnum:]-])${escaped_username}([^[:alnum:]-]|$)"
       identity_message="the student's GitHub username was not clearly detected"
       ;;
-    codespace)
-      identity_pattern="((^|[^[:alnum:]-])${escaped_username}([^[:alnum:]-]|$)|/workspaces/|codespaces?|app[.]github[.]dev)"
-      identity_message="the student's GitHub username or Codespaces context was not clearly detected"
+    ubuntu)
+      identity_pattern="(^|[^[:alnum:]-])${escaped_username}[[:space:]]*@[[:space:]]*ubuntu([^[:alnum:]_.-]|$)"
+      identity_message="the required <github-username>@ubuntu prompt was not clearly detected"
       ;;
   esac
 
@@ -319,13 +374,19 @@ PY
     continue
   fi
 
-  # The Assignment requires three LFS-tracked files. Tesseract normally reads
-  # each `git lfs ls-files` entry as an abbreviated object ID followed by its
-  # filename. Accept explicit 3/3 output as an alternative.
+  # The Assignment requires three .bin files and each file must be larger than
+  # 100 MiB. `git lfs ls-files --size` normally prints one object, filename,
+  # and human-readable size per line.
   if [[ "$filename" == "task3_lfs_files.png" ]]; then
-    lfs_entry_count="$(grep -Eci '^[[:space:]]*[0-9a-z]{6,}[[:space:]]+[*-]?[[:space:]]*[^[:space:]]+[.][a-z0-9]{1,8}' <<<"$ocr_text" || true)"
+    lfs_entry_count="$(grep -Eci '^[[:space:]]*[0-9a-z]{6,}[[:space:]]+[*-]?[[:space:]]*[^[:space:]]+[.]bin' <<<"$ocr_text" || true)"
     if (( lfs_entry_count < 3 )) && ! grep -Eqi '3[[:space:]]*/[[:space:]]*3' <<<"$ocr_text"; then
-      feedback+=("$filename: three LFS-tracked file entries were not clearly detected (0)")
+      feedback+=("$filename: three LFS-tracked .bin file entries were not clearly detected (0)")
+      continue
+    fi
+
+    lfs_size_count="$(grep -Eci '[.]bin.*(((10[1-9]|1[1-9][0-9]|[2-9][0-9]{2,})([.][0-9]+)?[[:space:]]*(mb|mib))|([1-9][0-9]*([.][0-9]+)?[[:space:]]*(gb|gib)))' <<<"$ocr_text" || true)"
+    if (( lfs_size_count < 3 )); then
+      feedback+=("$filename: sizes above 100 MiB were not clearly detected for all three LFS files (0)")
       continue
     fi
   fi
@@ -334,22 +395,25 @@ PY
   feedback+=("$filename: passed")
 done
 
-# Every required screenshot has equal weight. Scale the passed checks to the
-# TOTAL_MARKS value supplied by the workflow.
-score="$(python3 - "$passed" "$required" "$total_marks" <<'PY'
+# Screenshot evidence accounts for 90% of the marks and the three required
+# assignment files account for 10%. Each check inside its component has equal
+# weight. Scale both components to the TOTAL_MARKS supplied by the workflow.
+score="$(python3 - "$passed" "$required" "$artifact_passed" "$artifact_required" "$total_marks" <<'PY'
 from decimal import Decimal, ROUND_HALF_UP
 import sys
 
-passed, required, total = map(Decimal, sys.argv[1:])
-value = (passed / required * total).quantize(
-    Decimal("0.01"),
-    rounding=ROUND_HALF_UP,
+screenshot_passed, screenshot_required, artifact_passed, artifact_required, total = map(
+    Decimal, sys.argv[1:]
 )
+value = (
+    screenshot_passed / screenshot_required * total * Decimal("0.90")
+    + artifact_passed / artifact_required * total * Decimal("0.10")
+).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 print(value)
 PY
 )"
 
-summary="Passed $passed/$required Assignment 01 required screenshot checks. $(IFS='; '; echo "${feedback[*]}")"
+summary="Passed $passed/$required Assignment 01 screenshot checks and $artifact_passed/$artifact_required required assignment-file checks. $(IFS='; '; echo "${feedback[*]}")"
 node -e '
   console.log(JSON.stringify({
     score: Number(process.argv[1]),
