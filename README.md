@@ -77,6 +77,30 @@ credit and requests manual review, because automation cannot reliably identify
 the original owner. Perceptually similar standard installer screens are not
 flagged as duplicates.
 
+## Assignment 01 grading
+
+The Assignment 01 grader is aligned with the current question in
+`CC_F26/Assignments/Assignment01/README.md`.
+
+- The 12 required screenshots account for 90% of the assessment marks.
+- `Assignment01.md`, `Assignment01_Solution.docx`, and
+  `Assignment01_Solution.pdf` account for the remaining 10%.
+- Every Ubuntu terminal screenshot must show the student's registered GitHub
+  username in a `<github-username>@ubuntu` prompt. Matching is
+  case-insensitive.
+- Task 1 verifies the Ubuntu-hosted Gitea and PostgreSQL containers, a successful
+  HTTP 200 response, the `Assignment01` Gitea repository, and a real
+  `git push -u gitea main`.
+- Task 2 verifies safe Gitea and GitHub remotes, a successful GitHub push, and
+  the public GitHub `Assignment01` repository.
+- Task 3 verifies Git LFS installation and tracking, three `.bin` entries with
+  sizes above 100 MiB, and a successful three-object LFS upload.
+- Task 4 verifies the public `<username>.github.io` repository with both
+  `index.html` and `styles.css`, successful Pages deployment, and the live
+  portfolio.
+- Visible tokens, passwords, private keys, or credentials embedded in remote
+  URLs cause the affected screenshot check to fail.
+
 ## Install and verify
 
 ```bash
