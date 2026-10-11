@@ -6,7 +6,6 @@ import {
   normalizeScreenshotFilenames,
   normalizeScreenshotsDirectory
 } from "./screenshot-normalization.js";
-import { normalizeSubmissionDirectory } from "./submission-path.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const config = JSON.parse(readFileSync(path.join(root, "config/assignment.json"), "utf8"));
@@ -15,7 +14,6 @@ const students = JSON.parse(readFileSync(path.resolve(root, argument("--students
 const testScript = path.resolve(root, config.testScript);
 const results = [];
 const preparationErrors = new Map();
-const acceptedAlternatePaths = new Map();
 
 // Normalize every collected repository before the first student is graded so
 // duplicate detection sees the same case-insensitive filenames for everyone.
@@ -24,16 +22,8 @@ const acceptedAlternatePaths = new Map();
 for (const student of students) {
   const username = student.github_username;
   const repository = path.join(root, "work/submissions", username, config.repositoryName);
+  const submission = path.join(repository, ...config.submissionPath.split("/"));
   try {
-    const resolution = normalizeSubmissionDirectory(
-      repository,
-      config.submissionPath,
-      config.repositoryName
-    );
-    const submission = resolution.path;
-    if (resolution.originalRelativePath) {
-      acceptedAlternatePaths.set(username, resolution.originalRelativePath);
-    }
     const screenshots = normalizeScreenshotsDirectory(submission);
     if (!screenshots) continue;
     normalizeScreenshotFilenames(screenshots);
@@ -75,10 +65,6 @@ for (const student of students) {
       status = "error";
       testResult = { score: null, feedback: `Grading test failed; marks were not changed: ${error.message}` };
     }
-  }
-  if (status === "graded" && acceptedAlternatePaths.has(username)) {
-    const alternate = acceptedAlternatePaths.get(username);
-    testResult.feedback = `Accepted alternate submission directory: ${alternate}. ${testResult.feedback || ""}`.trim();
   }
   const total = Number(config.totalMarks);
   const obtained = status === "graded" ? Number(testResult.score) : null;
