@@ -128,17 +128,17 @@ normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:
 # inside one expression use normal extended-regex parentheses and |.
 readarray -t criteria <<'EOF'
 task1_gitea_running.png|ubuntu|(docker|dacker)[[:space:]]+compose[[:space:]]+ps;;gitea;;(postgres|gitea_db|gitea[[:space:]_-]*db|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gitea[[:space:]]+http[[:space:]]+status|http[[:space:]]+status).*200
-task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories);;assignment[[:space:]_@-]*0?[1li];;readme;;(public|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
-task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+[gq]?itea[[:space:]]+main;;([gq]?itea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
-task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(github|github[.]com);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
-task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea.*(127[.][0o@][.][0o@]([.][li1])?|localhost|:[[:space:]]*[23]?[0o6][0o@][0o@]?);;github.*github[.]com;;fetch;;push
-task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;public;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
-task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]?fs[[:space:]]+install|git[[:space:]]+[li1]?fs[[:space:]]+initialized|[li1]?fs[[:space:]]+initialized);;(git[[:space:]]+[li1]?fs[[:space:]]+version|git-[li1]?fs/[0-9]);;git[[:space:]]+[li1]?fs[[:space:]]+track;;gitattributes;;[.]bin
-task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]?fs[[:space:]]+[li1]?s-files([[:space:]]+--size)?;;[.]bin
-task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]?fs[[:space:]]+objects?|[li1]?fs[[:space:]]+objects?);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
-task4_pages_repository.png|username|github[.]io;;index[.]?htm[li1t];;styles[.]css;;public
-task4_pages_deployment.png|username|github[[:space:]_-]*pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;github[.]io
-task4_portfolio_live.png|username|github[.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|projects)
+task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories|packages.*releases.*wiki.*activity);;assignment[[:space:]_@-]*0?[1li];;readme;;(pub[li1]?ic|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+[gq]?[i1l]tea[[:space:]]+main;;([gq]?[i1l]tea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+([gj][i1l]t[hnu]u[b8]|https?[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m)[^[:space:]]*[[:space:]]+main;;[gj][i1l]t[hnu]u[b8]([.]c[oa]m)?;;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task2_remotes.png|ubuntu|git[[:space:]]+remote([[:space:]]+-v)?;;gitea.*(127[.][0o@][.][0o@]([.][li1])?|localhost|:[[:space:]]*[23]?[0o6][0o@][0o@]?);;[gj][i1l]t[hnu]u[b8].*[gj][i1l]t[hnu]u[b8][.]c[oa]m;;fetch;;push
+task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;pub[li1]?ic;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]{0,2}fs[[:space:]]+install|git[[:space:]]+[li1]{0,2}fs[[:space:]]+initialized|[li1]{0,2}fs[[:space:]]+initialized);;(git[[:space:]]+[li1]{0,2}fs[[:space:]]+version|git-[li1]{0,2}fs/[0-9]);;git[[:space:]]+[li1]{0,2}fs[[:space:]]+track;;gitattributes;;[.]bin
+task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]{0,2}fs[[:space:]]+[li1]?s-files([[:space:]]+--size)?;;[.]bin
+task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+([gj][i1l]t[hnu]u[b8]|https?[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]{0,2}fs[[:space:]]+objects?|[li1]{0,2}fs[[:space:]]+objects?);;(100%|3[[:space:]]*/[[:space:]]*3);;[gj][i1l]t[hnu]u[b8]([.]c[oa]m)?
+task4_pages_repository.png|username|[gj][i1l]t[hnu]u[b8][.]io;;index[.]?htm[li1t];;styles[.]css;;pub[li1]?ic
+task4_pages_deployment.png|username|github[[:space:]_-]*pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;[gj][i1l]t[hnu]u[b8][.]io
+task4_portfolio_live.png|username|[gj][i1l]t[hnu]u[b8][.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|projects)
 EOF
 
 required=${#criteria[@]}
@@ -448,22 +448,30 @@ import sys
 text = pathlib.Path(sys.argv[1]).read_text(
     encoding="utf-8", errors="replace"
 ).casefold()
+text = re.sub(r"\s*[.]\s*", ".", text)
 names = set()
 large = set()
-for line in text.splitlines():
-    filenames = re.findall(r"[a-z0-9_.@-]+[.]bin", line)
-    if not filenames:
-        continue
-    names.update(filenames)
-    sizes = re.findall(
-        r"([0-9]+(?:[.][0-9]+)?)\s*(m|mb|mib|g|gb|gib)\b", line
+filename_matches = list(re.finditer(r"[a-z0-9_.@-]+[.]bin", text))
+for index, match in enumerate(filename_matches):
+    filename = match.group()
+    names.add(filename)
+    next_filename = (
+        filename_matches[index + 1].start()
+        if index + 1 < len(filename_matches)
+        else len(text)
     )
-    for filename in filenames:
-        for number, unit in sizes:
-            value = float(number)
-            if unit.startswith("g") or value > 100:
-                large.add(filename)
-                break
+    # Tesseract often places `(106 MB)` on the line after the filename. Keep
+    # the search bounded by the next filename so one size cannot validate a
+    # different entry.
+    evidence = text[match.end():next_filename]
+    sizes = re.findall(
+        r"([0-9]+(?:[.][0-9]+)?)\s*(m|mb|mib|g|gb|gib)\b", evidence
+    )
+    for number, unit in sizes:
+        value = float(number)
+        if unit.startswith("g") or value > 100:
+            large.add(filename)
+            break
 print(len(names), len(large))
 PY
     )
