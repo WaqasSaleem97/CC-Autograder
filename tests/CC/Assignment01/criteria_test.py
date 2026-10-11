@@ -118,6 +118,14 @@ Already up to date.
         self.assertTrue(evidence_matches("task1_gitea_push.png", valid))
         self.assertFalse(evidence_matches("task1_gitea_push.png", pull_only))
 
+    def test_gitea_push_tolerates_a_dropped_leading_g_from_ocr(self):
+        noisy_ocr = """\
+student@ubuntu:~/Assignment01$ git push -u itea main
+To http://127.0.0.1:3000/student/Assignment01.git
+main -> main
+"""
+        self.assertTrue(evidence_matches("task1_gitea_push.png", noisy_ocr))
+
     def test_remote_evidence_requires_local_gitea_and_github(self):
         valid = """\
 student@ubuntu:~/Assignment01$ git remote -v
@@ -147,6 +155,38 @@ github
 https://github.com/student/Assignment01.git (push)
 """
         self.assertTrue(evidence_matches("task2_remotes.png", wrapped))
+
+    def test_remote_evidence_tolerates_a_truncated_loopback_address(self):
+        noisy_ocr = """\
+student@ubuntu:~/Assignment01$ git remote -v
+gitea http://student@127.0.0./student/Assignment01.git (fetch)
+gitea http://student@127.0.0./student/Assignment01.git (push)
+github https://github.com/student/Assignment01.git (fetch)
+github https://github.com/student/Assignment01.git (push)
+"""
+        self.assertTrue(evidence_matches("task2_remotes.png", noisy_ocr))
+
+    def test_repository_accepts_github_ui_signals_and_fa_registration(self):
+        valid_ui_ocr = """\
+student / assignment 1 Public
+README
+Security and quality Insights Agents
+Student Name FA24B1-SE-001
+"""
+        self.assertTrue(
+            evidence_matches("task2_github_repository.png", valid_ui_ocr)
+        )
+
+    def test_repository_does_not_treat_an_ordinary_fa_word_as_registration(self):
+        no_registration = """\
+student / assignment 1 Public
+README
+Security and quality Insights
+fantastic portfolio
+"""
+        self.assertFalse(
+            evidence_matches("task2_github_repository.png", no_registration)
+        )
 
     def test_lfs_setup_requires_install_version_tracking_and_attributes(self):
         valid = """\
@@ -191,6 +231,28 @@ file3.bin (153 MB)
 """
         self.assertTrue(evidence_matches("task3_lfs_files.png", noisy_ocr))
 
+    def test_lfs_commands_tolerate_an_omitted_leading_l(self):
+        setup = """\
+git fs install
+Git LFS initialized.
+git fs version
+git-lfs/3.7.1
+git fs track "*.bin"
+.gitattributes *.bin
+"""
+        files = "git fs ls-files --size\nfile1.bin (151 MB)"
+        self.assertTrue(evidence_matches("task3_lfs_setup.png", setup))
+        self.assertTrue(evidence_matches("task3_lfs_files.png", files))
+
+    def test_lfs_push_accepts_singular_object_from_ocr(self):
+        noisy_ocr = """\
+git push -u github main
+Uploading LFS object: 100% (3/3)
+github.com
+main -> main
+"""
+        self.assertTrue(evidence_matches("task3_lfs_push.png", noisy_ocr))
+
     def test_pages_repository_requires_both_source_files_and_public_status(self):
         valid = """\
 student.github.io
@@ -209,6 +271,16 @@ portfolio
         )
         self.assertFalse(
             evidence_matches("task4_pages_repository.png", missing_styles)
+        )
+
+    def test_pages_evidence_tolerates_observed_ocr_joining(self):
+        repository = "student.github.io Public indexhtmt styles.css"
+        deployment = "github-pages deployments success student.github.io"
+        self.assertTrue(
+            evidence_matches("task4_pages_repository.png", repository)
+        )
+        self.assertTrue(
+            evidence_matches("task4_pages_deployment.png", deployment)
         )
 
     def test_required_files_and_balanced_scoring_remain_enabled(self):

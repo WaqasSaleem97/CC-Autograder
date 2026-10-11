@@ -128,16 +128,16 @@ normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:
 # inside one expression use normal extended-regex parentheses and |.
 readarray -t criteria <<'EOF'
 task1_gitea_running.png|ubuntu|(docker|dacker)[[:space:]]+compose[[:space:]]+ps;;gitea;;(postgres|gitea_db|gitea[[:space:]_-]*db|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gitea[[:space:]]+http[[:space:]]+status|http[[:space:]]+status).*200
-task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories);;assignment[[:space:]_@-]*0?[1li];;readme;;(public|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|registration|roll[[:space:]]*(number|no))
-task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+gitea[[:space:]]+main;;(gitea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories);;assignment[[:space:]_@-]*0?[1li];;readme;;(public|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+[gq]?itea[[:space:]]+main;;([gq]?itea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
 task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(github|github[.]com);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
-task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea.*(127[.][0o@][.][0o@][.]1|localhost|:[[:space:]]*3[0o6][0o@][0o@]);;github.*github[.]com;;fetch;;push
-task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;github([.]com)?;;public;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|registration|roll[[:space:]]*(number|no))
-task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]fs[[:space:]]+install|git[[:space:]]+[li1]fs[[:space:]]+initialized|[li1]fs[[:space:]]+initialized);;(git[[:space:]]+[li1]fs[[:space:]]+version|git-[li1]fs/[0-9]);;git[[:space:]]+[li1]fs[[:space:]]+track;;gitattributes;;[.]bin
-task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]fs[[:space:]]+[li1]s-files([[:space:]]+--size)?;;[.]bin
-task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]fs[[:space:]]+objects|[li1]fs[[:space:]]+objects);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
-task4_pages_repository.png|username|github[.]io;;index[.]html;;styles[.]css;;public
-task4_pages_deployment.png|username|github[[:space:]]+pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;github[.]io
+task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea.*(127[.][0o@][.][0o@]([.][li1])?|localhost|:[[:space:]]*[23]?[0o6][0o@][0o@]?);;github.*github[.]com;;fetch;;push
+task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;public;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]?fs[[:space:]]+install|git[[:space:]]+[li1]?fs[[:space:]]+initialized|[li1]?fs[[:space:]]+initialized);;(git[[:space:]]+[li1]?fs[[:space:]]+version|git-[li1]?fs/[0-9]);;git[[:space:]]+[li1]?fs[[:space:]]+track;;gitattributes;;[.]bin
+task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]?fs[[:space:]]+[li1]?s-files([[:space:]]+--size)?;;[.]bin
+task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]?fs[[:space:]]+objects?|[li1]?fs[[:space:]]+objects?);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
+task4_pages_repository.png|username|github[.]io;;index[.]?htm[li1t];;styles[.]css;;public
+task4_pages_deployment.png|username|github[[:space:]_-]*pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;github[.]io
 task4_portfolio_live.png|username|github[.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|projects)
 EOF
 

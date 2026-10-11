@@ -10,7 +10,15 @@ from pathlib import Path
 
 
 def compact(value: str) -> str:
-    return "".join(character for character in value.casefold() if character.isalnum())
+    # GitHub usernames are ASCII. Decomposing OCR accents (for example, an
+    # accented ``e`` produced from a terminal digit) keeps harmless OCR noise
+    # from becoming a completely different character.
+    normalized = unicodedata.normalize("NFKD", value.casefold())
+    return "".join(
+        character
+        for character in normalized
+        if character.isascii() and character.isalnum()
+    )
 
 
 def edit_distance(left: str, right: str) -> int:
@@ -56,6 +64,35 @@ def candidate_tokens(text: str, expected_length: int, allowance: int) -> set[str
     return result
 
 
+def trailing_digit_ocr_match(expected: str, candidate: str) -> bool:
+    """Match a numeric username suffix only when OCR saw a suffix too.
+
+    Terminal OCR commonly turns a suffix such as ``050`` into letters such as
+    ``eSe``. We accept that shape when the stable alphabetic prefix still
+    matches closely, but do not accept a prompt that omits the suffix entirely.
+    """
+
+    match = re.fullmatch(r"(.+?)([0-9]{2,})", expected)
+    if match is None:
+        return False
+
+    expected_base, expected_suffix = match.groups()
+    if len(expected_base) < 6:
+        return False
+
+    for base_length in range(max(1, len(expected_base) - 1), len(expected_base) + 2):
+        seen_base = candidate[:base_length]
+        seen_suffix = candidate[base_length:]
+        if (
+            len(expected_suffix) - 1
+            <= len(seen_suffix)
+            <= len(expected_suffix) + 1
+            and edit_distance(expected_base, seen_base) <= 1
+        ):
+            return True
+    return False
+
+
 def username_matches(expected: str, text: str) -> bool:
     wanted = compact(expected)
     if not wanted:
@@ -68,10 +105,14 @@ def username_matches(expected: str, text: str) -> bool:
     allowance = allowed_ocr_edits(len(wanted))
     if allowance == 0:
         return False
-    return any(
-        edit_distance(wanted, candidate) <= allowance
-        for candidate in candidate_tokens(text, len(wanted), allowance)
-    )
+    candidates = candidate_tokens(text, len(wanted), allowance)
+    protected_suffix = re.fullmatch(r"(.+?)([0-9]{2,})", wanted)
+    if protected_suffix and len(protected_suffix.group(1)) >= 6:
+        return any(
+            trailing_digit_ocr_match(wanted, candidate)
+            for candidate in candidates
+        )
+    return any(edit_distance(wanted, candidate) <= allowance for candidate in candidates)
 
 
 def word_matches(expected: str, text: str, allowance: int = 1) -> bool:
@@ -86,11 +127,22 @@ def word_matches(expected: str, text: str, allowance: int = 1) -> bool:
 
 
 def prompt_matches(expected: str, text: str) -> bool:
-    lines = unicodedata.normalize("NFKC", text).casefold().splitlines()
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    lines = normalized.splitlines()
     for index in range(len(lines)):
         # OCR frequently puts the username, @, and hostname on adjacent lines.
         window = " ".join(lines[index : index + 5])
         if username_matches(expected, window) and word_matches("ubuntu", window):
+            return True
+
+    # OCR sometimes reads ``@`` as ``g`` and joins the prompt into one token,
+    # for example ``taneeszahragubuntu``. Split only tokens ending in the exact
+    # Ubuntu hostname, then apply the same conservative username matcher.
+    for token in re.findall(r"[a-z0-9-]+", normalized):
+        compact_token = compact(token)
+        if compact_token.endswith("ubuntu") and username_matches(
+            expected, compact_token[: -len("ubuntu")]
+        ):
             return True
     return False
 

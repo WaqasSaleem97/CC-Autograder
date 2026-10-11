@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findSubmissionDirectory } from "./submission-path.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const config = JSON.parse(readFileSync(path.join(root, "config/assignment.json"), "utf8"));
@@ -36,8 +37,19 @@ for (const student of students) {
       rmSync(destination, { recursive: true, force: true });
       clone("");
     }
-    const submission = path.join(destination, ...config.submissionPath.split("/"));
-    console.log(existsSync(submission) ? `${username}: submission collected.` : `${username}: directory missing: ${config.submissionPath}`);
+    const submission = findSubmissionDirectory(
+      destination,
+      config.submissionPath,
+      config.repositoryName
+    );
+    if (submission) {
+      const location = submission.relativePath === config.submissionPath
+        ? ""
+        : ` from accepted alternate directory ${submission.relativePath}`;
+      console.log(`${username}: submission collected${location}.`);
+    } else {
+      console.log(`${username}: directory missing: ${config.submissionPath}`);
+    }
     collected++;
   } catch {
     const tokenHint = process.env.GH_TOKEN ? "" : " Configure STUDENT_REPOS_TOKEN if this repository is private.";

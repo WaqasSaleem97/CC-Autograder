@@ -45,6 +45,38 @@ class IdentityMatchingTests(unittest.TestCase):
     def test_prompt_requires_the_hostname(self):
         self.assertFalse(prompt_matches("nidaawajid", "nidaawajid@debian:~$"))
 
+    def test_prompt_tolerates_at_sign_joined_to_ubuntu_by_ocr(self):
+        self.assertTrue(
+            prompt_matches(
+                "taneeszahra",
+                "taneeszahragubuntu:~/Assignment01$",
+            )
+        )
+
+    def test_prompt_tolerates_ocr_letters_in_a_numeric_suffix(self):
+        self.assertTrue(
+            prompt_matches(
+                "FizaJabbar050",
+                "fizajabbareSe@ubuntu:~/Assignment01$",
+            )
+        )
+        self.assertTrue(
+            prompt_matches(
+                "LaibaSaleem066",
+                "laihasaleemesé@ubuntu:~/Assignment01$",
+            )
+        )
+
+    def test_prompt_does_not_accept_an_omitted_numeric_suffix(self):
+        self.assertFalse(
+            prompt_matches("FizaJabbar050", "fizajabbar@ubuntu:~/Assignment01$")
+        )
+
+    def test_prompt_does_not_accept_an_abbreviated_username(self):
+        self.assertFalse(
+            prompt_matches("areebahabib", "areeba@ubuntu:~/Assignment01$")
+        )
+
 
 class CredentialDetectionTests(unittest.TestCase):
     def test_normal_url_and_later_ubuntu_prompt_are_not_joined(self):
