@@ -101,6 +101,33 @@ The Assignment 01 grader is aligned with the current question in
 - Visible tokens, passwords, private keys, or credentials embedded in remote
   URLs cause the affected screenshot check to fail.
 
+## Lab 04 grading
+
+The Lab 04 grader is aligned with the current question in
+`CC_F26/Labs/Lab04/README.md`.
+
+- The score uses 64 equal required checks: 61 required screenshots,
+  `workspace/python_project`, `workspace/java_app_copy`, and
+  `Lab4_Solution.pdf`.
+- `vm_login.png`, `sudo_whoami.png`, `deluser.png`, the four bonus-script
+  screenshots, and `Q5_user_removed.png` are optional and do not reduce or
+  increase the automated score.
+- Published `Q1_...` through `Q5_...` names are resolved after the shared
+  case-insensitive filename and image-extension normalization.
+- Main-user terminal evidence must show the registered
+  `<github-username>@ubuntu` prompt. After `su - lab4user`, the active prompt
+  may instead be `lab4user@ubuntu`. Username matching is case-insensitive and
+  tolerates a small number of OCR errors.
+- The VMware settings check validates RAM, CPU, disk, and networking without
+  requiring a literal product-brand label. SSH evidence accepts a host name or
+  an IP address.
+- Written answers must identify all required binary directories and contain a
+  substantive explanation rather than only listing their names.
+- The copied project must preserve `README.md`, `main.py`, and `.env` in
+  both required workspace directories. The solution report must be the exact,
+  valid `Lab4_Solution.pdf`; an obsolete Word or Markdown report is not
+  required.
+
 ## Install and verify
 
 ```bash
