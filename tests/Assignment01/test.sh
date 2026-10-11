@@ -66,9 +66,18 @@ fi
 
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+# The workflow normalizes Screenshots/screenshots before grading. Keep the
+# standalone grader equally forgiving when it is run directly.
 if [[ ! -d "$screenshots_dir" ]]; then
-  json_error "Required directory is missing: Assignments/Assignment01/screenshots"
+  alternate_screenshots_dir="$(
+    find "$submission_dir" -mindepth 1 -maxdepth 1 -type d -iname screenshots \
+      -print -quit 2>/dev/null || true
+  )"
+  if [[ -n "$alternate_screenshots_dir" ]]; then
+    screenshots_dir="$alternate_screenshots_dir"
+  fi
 fi
 
 # Username priority:
@@ -104,28 +113,29 @@ if [[ ! "$github_username" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] |
 fi
 
 normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
-escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()]/\\&/g')"
 
 # Format:
 # filename|identity flag|required OCR expressions separated by ;;
 #
 # Identity flags:
 #   none      - no username requirement
-#   username  - the student's GitHub username must appear
-#   ubuntu    - the case-insensitive <github-username>@ubuntu prompt must appear
+#   username  - the student's GitHub username should appear
+#   ubuntu    - the case-insensitive <github-username>@ubuntu prompt should appear
 #
-# Every ;; separated expression is required. Alternatives inside one expression
-# use normal extended-regex parentheses and |.
+# Each expression is one independent task-evidence indicator. A readable image
+# earns proportional credit for the indicators OCR can verify instead of losing
+# the complete screenshot mark because one word was misread. Alternatives
+# inside one expression use normal extended-regex parentheses and |.
 readarray -t criteria <<'EOF'
-task1_gitea_running.png|ubuntu|docker[[:space:]]+compose[[:space:]]+ps;;gitea;;(postgres|gitea_db|gitea[[:space:]_-]*db);;(up|running|healthy);;(gitea[[:space:]]+http[[:space:]]+status|http[[:space:]]+status).*200
-task1_gitea_repository.png|none|(gitea|repositories);;(assignment[[:space:]_-]*0?1);;readme;;20[0-9]{2}.*[0-9]{1,3}
-task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+gitea[[:space:]]+main;;gitea;;main;;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
-task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+github[[:space:]]+main;;(github|github[.]com);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
-task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea;;(127[.]0[.]0[.]1|localhost);;github;;github[.]com;;fetch;;push
-task2_github_repository.png|username|(assignment[[:space:]_-]*0?1);;readme;;github;;public;;20[0-9]{2}.*[0-9]{1,3}
-task3_lfs_setup.png|ubuntu|(git[[:space:]]+lfs[[:space:]]+install|git[[:space:]]+lfs[[:space:]]+initialized);;git[[:space:]]+lfs[[:space:]]+version;;git[[:space:]]+lfs[[:space:]]+track;;gitattributes;;bin
-task3_lfs_files.png|ubuntu|git[[:space:]]+lfs[[:space:]]+ls-files;;[.]bin
-task3_lfs_push.png|ubuntu|git[[:space:]]+push[[:space:]]+github[[:space:]]+main;;(uploading[[:space:]]+lfs[[:space:]]+objects|lfs[[:space:]]+objects);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
+task1_gitea_running.png|ubuntu|(docker|dacker)[[:space:]]+compose[[:space:]]+ps;;gitea;;(postgres|gitea_db|gitea[[:space:]_-]*db|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gitea[[:space:]]+http[[:space:]]+status|http[[:space:]]+status).*200
+task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories);;assignment[[:space:]_@-]*0?[1li];;readme;;(public|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|registration|roll[[:space:]]*(number|no))
+task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+gitea[[:space:]]+main;;(gitea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(github|github[.]com);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
+task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea.*(127[.]0[.]0[.]1|localhost|:[[:space:]]*3000);;github.*github[.]com;;fetch;;push
+task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;github([.]com)?;;public;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|registration|roll[[:space:]]*(number|no))
+task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]fs[[:space:]]+install|git[[:space:]]+[li1]fs[[:space:]]+initialized|[li1]fs[[:space:]]+initialized);;(git[[:space:]]+[li1]fs[[:space:]]+version|git-[li1]fs/[0-9]);;git[[:space:]]+[li1]fs[[:space:]]+track;;gitattributes;;[.]bin
+task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]fs[[:space:]]+ls-files([[:space:]]+--size)?;;[.]bin
+task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]fs[[:space:]]+objects|[li1]fs[[:space:]]+objects);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
 task4_pages_repository.png|username|github[.]io;;index[.]html;;styles[.]css;;public
 task4_pages_deployment.png|username|github[[:space:]]+pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;github[.]io
 task4_portfolio_live.png|username|github[.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|projects)
@@ -142,9 +152,27 @@ Assignment01_Solution.pdf|pdf
 EOF
 artifact_required=${#artifact_criteria[@]}
 
-# OCR screenshots concurrently. By default, use all logical CPUs available on
-# the runner. OCR_JOBS may request fewer workers but cannot exceed the available
-# CPUs or the safety cap of 8.
+# Resolve required screenshot stems without considering capitalization, image
+# extensions, or repeated extensions such as `.PNG.png`.
+expected_screenshots=()
+for rule in "${criteria[@]}"; do
+  expected_screenshots+=("${rule%%|*}")
+done
+
+declare -A resolved_screenshots
+if [[ -d "$screenshots_dir" ]]; then
+  while IFS=$'\t' read -r expected actual; do
+    resolved_screenshots["$expected"]="$actual"
+  done < <(
+    python3 "$grader_root/scripts/resolve_screenshots.py" \
+      "$screenshots_dir" "${expected_screenshots[@]}"
+  )
+fi
+
+# OCR screenshots concurrently. Assignment 01 evidence is limited to normal
+# browser and terminal screenshots, so one PSM 11 pass keeps a full-class run
+# fast. The shared fuzzy matcher handles the spacing and character substitutions
+# Tesseract commonly introduces in usernames.
 ocr_dir="$(mktemp -d "/tmp/assignment01-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -156,6 +184,7 @@ if [[ ! "$available_cpus" =~ ^[1-9][0-9]*$ ]]; then
   available_cpus=2
 fi
 
+export OMP_THREAD_LIMIT="${OMP_THREAD_LIMIT:-1}"
 ocr_jobs="${OCR_JOBS:-$available_cpus}"
 if [[ ! "$ocr_jobs" =~ ^[1-9][0-9]*$ ]]; then
   ocr_jobs="$available_cpus"
@@ -167,17 +196,19 @@ if (( ocr_jobs > 8 )); then
   ocr_jobs=8
 fi
 
-printf '%s\n' "${criteria[@]}" |
-  cut -d'|' -f1 |
-  while IFS= read -r filename; do
-    [[ -f "$screenshots_dir/$filename" ]] && printf '%s\n' "$filename"
-  done |
-  xargs -r -P "$ocr_jobs" -I '{}' \
+for rule in "${criteria[@]}"; do
+  filename="${rule%%|*}"
+  image="${resolved_screenshots[$filename]:-}"
+  [[ -f "$image" ]] && printf '%s\0%s\0' "$filename" "$image"
+done |
+  xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
-      source_image="$1/$2"
-      output_base="$3/${2%.*}"
+      output_directory="$1"
+      filename="$2"
+      source_image="$3"
+      output_base="$output_directory/${filename%.*}"
       tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
-    ' _ "$screenshots_dir" '{}' "$ocr_dir"
+    ' _ "$ocr_dir"
 
 # Build one exact-duplicate index for screenshots with the same filename across
 # every student selected in this workflow. Both students receive zero for a
@@ -203,14 +234,25 @@ root = pathlib.Path(sys.argv[1]).resolve()
 relative = pathlib.PurePosixPath(sys.argv[2])
 output = pathlib.Path(sys.argv[3])
 groups = defaultdict(list)
+image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif")
+
+def filename_key(name):
+    value = name.casefold().rstrip(".")
+    while True:
+        for extension in image_extensions:
+            if value.endswith(extension):
+                value = value[:-len(extension)].rstrip(".")
+                break
+        else:
+            return value
 
 for repository in root.glob("*/*"):
     screenshot_dir = repository.joinpath(*relative.parts)
     if not screenshot_dir.is_dir():
         continue
     for image in screenshot_dir.iterdir():
-        if image.is_file() and image.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-            groups[image.name.lower()].append(image.resolve())
+        if image.is_file() and filename_key(image.name):
+            groups[filename_key(image.name)].append(image.resolve())
 
 duplicates = {}
 for paths in groups.values():
@@ -281,7 +323,9 @@ for artifact_rule in "${artifact_criteria[@]}"; do
   fi
 done
 
-passed=0
+full_credit=0
+partial_credit=0
+screenshot_credit_units=0
 feedback=("${artifact_feedback[@]}")
 
 for rule in "${criteria[@]}"; do
@@ -289,9 +333,14 @@ for rule in "${criteria[@]}"; do
   remainder="${rule#*|}"
   identity_flag="${remainder%%|*}"
   evidence_groups="${remainder#*|}"
-  image="$screenshots_dir/$filename"
+  image="${resolved_screenshots[$filename]:-}"
 
-  if [[ ! -f "$image" ]]; then
+  if [[ "$image" == "__AMBIGUOUS__" ]]; then
+    feedback+=("$filename: multiple files match this name when image extensions are ignored (0)")
+    continue
+  fi
+
+  if [[ -z "$image" || ! -f "$image" ]]; then
     feedback+=("$filename: missing (0)")
     continue
   fi
@@ -342,78 +391,156 @@ PY
     continue
   fi
 
-  identity_pattern=""
-  identity_message=""
+  # Identity is useful ownership evidence, but OCR uncertainty must not erase
+  # otherwise valid task evidence. Fuzzy matching tolerates case differences,
+  # inserted spaces, and a small number of OCR substitutions. Identity is 15%
+  # of a screenshot check; task evidence is 85%.
+  identity_required=false
+  identity_verified=true
   case "$identity_flag" in
     username)
-      identity_pattern="(^|[^[:alnum:]-])${escaped_username}([^[:alnum:]-]|$)"
-      identity_message="the student's GitHub username was not clearly detected"
+      identity_required=true
+      if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+        username "$normalized_username" "$ocr_file"; then
+        identity_verified=false
+      fi
       ;;
     ubuntu)
-      identity_pattern="(^|[^[:alnum:]-])${escaped_username}[[:space:]]*@[[:space:]]*ubuntu([^[:alnum:]_.-]|$)"
-      identity_message="the required <github-username>@ubuntu prompt was not clearly detected"
+      identity_required=true
+      if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+        prompt "$normalized_username" "$ocr_file"; then
+        identity_verified=false
+      fi
       ;;
   esac
 
-  if [[ -n "$identity_pattern" ]] && ! grep -Eqi "$identity_pattern" <<<"$ocr_text"; then
-    feedback+=("$filename: $identity_message (0)")
-    continue
-  fi
+  # Repair harmless spacing around punctuation before matching commands, URLs,
+  # filenames, and IPv4 addresses in noisy OCR output.
+  ocr_normalized="$(
+    printf '%s' "$ocr_text" |
+      sed -E \
+        -e 's/[[:space:]]*[.][[:space:]]*/./g' \
+        -e 's/[[:space:]]*@[[:space:]]*/@/g' \
+        -e 's#[[:space:]]*/[[:space:]]*#/#g' \
+        -e 's/[[:space:]]*:[[:space:]]*/:/g'
+  )"
 
-  evidence_ok=true
+  evidence_total=0
+  evidence_matched=0
   while IFS= read -r evidence_pattern; do
     [[ -z "$evidence_pattern" ]] && continue
-    if ! grep -Eqi -- "$evidence_pattern" <<<"$ocr_text"; then
-      evidence_ok=false
-      break
+    evidence_total=$((evidence_total + 1))
+    if grep -Eqi -- "$evidence_pattern" <<<"$ocr_normalized"; then
+      evidence_matched=$((evidence_matched + 1))
     fi
-  done < <(printf '%s' "$evidence_groups" | sed 's/;;/\n/g')
+  done < <(printf '%s\n' "$evidence_groups" | sed 's/;;/\n/g')
 
-  if [[ "$evidence_ok" != true ]]; then
+  # The Assignment requires three .bin files and each file must be larger than
+  # 100 MiB. Count unique filenames rather than requiring every OCR character
+  # in each LFS object hash to be perfect. These are two additional independent
+  # indicators, so unclear size text earns partial rather than zero credit.
+  if [[ "$filename" == "task3_lfs_files.png" ]]; then
+    read -r lfs_entry_count lfs_size_count < <(
+      python3 - "$ocr_file" <<'PY'
+import pathlib
+import re
+import sys
+
+text = pathlib.Path(sys.argv[1]).read_text(
+    encoding="utf-8", errors="replace"
+).casefold()
+names = set()
+large = set()
+for line in text.splitlines():
+    filenames = re.findall(r"[a-z0-9_.@-]+[.]bin", line)
+    if not filenames:
+        continue
+    names.update(filenames)
+    sizes = re.findall(
+        r"([0-9]+(?:[.][0-9]+)?)\s*(m|mb|mib|g|gb|gib)\b", line
+    )
+    for filename in filenames:
+        for number, unit in sizes:
+            value = float(number)
+            if unit.startswith("g") or value > 100:
+                large.add(filename)
+                break
+print(len(names), len(large))
+PY
+    )
+    evidence_total=$((evidence_total + 2))
+    if (( lfs_entry_count >= 3 )); then
+      evidence_matched=$((evidence_matched + 1))
+    fi
+    if (( lfs_size_count >= 3 )); then
+      evidence_matched=$((evidence_matched + 1))
+    fi
+  fi
+
+  if (( evidence_total == 0 || evidence_matched == 0 )); then
     feedback+=("$filename: required task evidence was not detected (0)")
     continue
   fi
 
-  # The Assignment requires three .bin files and each file must be larger than
-  # 100 MiB. `git lfs ls-files --size` normally prints one object, filename,
-  # and human-readable size per line.
-  if [[ "$filename" == "task3_lfs_files.png" ]]; then
-    lfs_entry_count="$(grep -Eci '^[[:space:]]*[0-9a-z]{6,}[[:space:]]+[*-]?[[:space:]]*[^[:space:]]+[.]bin' <<<"$ocr_text" || true)"
-    if (( lfs_entry_count < 3 )) && ! grep -Eqi '3[[:space:]]*/[[:space:]]*3' <<<"$ocr_text"; then
-      feedback+=("$filename: three LFS-tracked .bin file entries were not clearly detected (0)")
-      continue
+  if [[ "$identity_required" == true ]]; then
+    credit_units=$((850 * evidence_matched / evidence_total))
+    if [[ "$identity_verified" == true ]]; then
+      credit_units=$((credit_units + 150))
+      identity_note="identity verified"
+    else
+      identity_note="identity not detected by OCR"
     fi
-
-    lfs_size_count="$(grep -Eci '[.]bin.*(((10[1-9]|1[1-9][0-9]|[2-9][0-9]{2,})([.][0-9]+)?[[:space:]]*(mb|mib))|([1-9][0-9]*([.][0-9]+)?[[:space:]]*(gb|gib)))' <<<"$ocr_text" || true)"
-    if (( lfs_size_count < 3 )); then
-      feedback+=("$filename: sizes above 100 MiB were not clearly detected for all three LFS files (0)")
-      continue
-    fi
+  else
+    credit_units=$((1000 * evidence_matched / evidence_total))
+    identity_note=""
   fi
 
-  passed=$((passed + 1))
-  feedback+=("$filename: passed")
+  screenshot_credit_units=$((screenshot_credit_units + credit_units))
+  if (( credit_units == 1000 )); then
+    full_credit=$((full_credit + 1))
+    feedback+=("$filename: passed")
+  else
+    partial_credit=$((partial_credit + 1))
+    if [[ -n "$identity_note" ]]; then
+      feedback+=("$filename: partial credit - $evidence_matched/$evidence_total task indicators; $identity_note")
+    else
+      feedback+=("$filename: partial credit - $evidence_matched/$evidence_total task indicators")
+    fi
+  fi
 done
 
 # Screenshot evidence accounts for 90% of the marks and the three required
 # assignment files account for 10%. Each check inside its component has equal
 # weight. Scale both components to the TOTAL_MARKS supplied by the workflow.
-score="$(python3 - "$passed" "$required" "$artifact_passed" "$artifact_required" "$total_marks" <<'PY'
+score="$(python3 - "$screenshot_credit_units" "$required" "$artifact_passed" "$artifact_required" "$total_marks" <<'PY'
 from decimal import Decimal, ROUND_HALF_UP
 import sys
 
-screenshot_passed, screenshot_required, artifact_passed, artifact_required, total = map(
+screenshot_units, screenshot_required, artifact_passed, artifact_required, total = map(
     Decimal, sys.argv[1:]
 )
 value = (
-    screenshot_passed / screenshot_required * total * Decimal("0.90")
+    screenshot_units / (screenshot_required * Decimal("1000"))
+    * total
+    * Decimal("0.90")
     + artifact_passed / artifact_required * total * Decimal("0.10")
 ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 print(value)
 PY
 )"
 
-summary="Passed $passed/$required Assignment 01 screenshot checks and $artifact_passed/$artifact_required required assignment-file checks. $(IFS='; '; echo "${feedback[*]}")"
+screenshot_equivalent="$(python3 - "$screenshot_credit_units" <<'PY'
+from decimal import Decimal, ROUND_HALF_UP
+import sys
+
+value = (Decimal(sys.argv[1]) / Decimal("1000")).quantize(
+    Decimal("0.01"), rounding=ROUND_HALF_UP
+)
+print(value)
+PY
+)"
+
+summary="Earned $screenshot_equivalent/$required screenshot-check equivalents ($full_credit full, $partial_credit partial) and passed $artifact_passed/$artifact_required required assignment-file checks. $(IFS='; '; echo "${feedback[*]}")"
 node -e '
   console.log(JSON.stringify({
     score: Number(process.argv[1]),

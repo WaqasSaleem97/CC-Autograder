@@ -85,9 +85,19 @@ The Assignment 01 grader is aligned with the current question in
 - The 12 required screenshots account for 90% of the assessment marks.
 - `Assignment01.md`, `Assignment01_Solution.docx`, and
   `Assignment01_Solution.pdf` account for the remaining 10%.
-- Every Ubuntu terminal screenshot must show the student's registered GitHub
-  username in a `<github-username>@ubuntu` prompt. Matching is
-  case-insensitive.
+- A readable screenshot receives proportional credit for each task indicator
+  that OCR can verify; one unclear word no longer makes the complete screenshot
+  worth zero.
+- For terminal and account-specific browser screenshots, task evidence is 85%
+  of that screenshot check and the ownership/identity signal is 15%. Username
+  matching is case-insensitive and tolerates small OCR errors in long names.
+- A missing identity signal therefore causes only the identity deduction when
+  the task itself is visible. Missing, corrupt, unreadable, exact cross-student
+  duplicate, or credential-exposing screenshots still receive zero.
+- `screenshots` folder capitalization, screenshot filename capitalization,
+  image format, and repeated image extensions such as `.png.png` are ignored.
+- If the screenshot folder is absent, the three valid assignment files can
+  still receive their 10% component instead of the grader exiting early.
 - Task 1 verifies the Ubuntu-hosted Gitea and PostgreSQL containers, a successful
   HTTP 200 response, the `Assignment01` Gitea repository, and a real
   `git push -u gitea main`.

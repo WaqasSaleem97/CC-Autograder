@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+import json
 import pathlib
 import re
 import subprocess
+import tempfile
 import unittest
+import zipfile
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -48,7 +51,7 @@ class Assignment1CriteriaTests(unittest.TestCase):
     def test_required_screenshot_count_stays_at_12(self):
         self.assertEqual(len(CRITERIA), 12)
 
-    def test_all_terminal_screenshots_require_the_ubuntu_identity(self):
+    def test_all_terminal_screenshots_use_the_ubuntu_identity_signal(self):
         terminal_files = {
             "task1_gitea_running.png",
             "task1_gitea_push.png",
@@ -137,6 +140,18 @@ cat .gitattributes
             evidence_matches("task3_lfs_setup.png", missing_install)
         )
 
+    def test_lfs_patterns_tolerate_common_ocr_i_for_l_confusion(self):
+        noisy_ocr = """\
+git Ifs install
+Git LFS initialized.
+git Ifs version
+git-1fs/3.7.1
+git Ifs track "x.bin"
+cat .gitattributes
+x.bin filter=lfs diff=lfs merge=lfs -text
+"""
+        self.assertTrue(evidence_matches("task3_lfs_setup.png", noisy_ocr))
+
     def test_pages_repository_requires_both_source_files_and_public_status(self):
         valid = """\
 student.github.io
@@ -157,7 +172,7 @@ portfolio
             evidence_matches("task4_pages_repository.png", missing_styles)
         )
 
-    def test_required_files_and_weighted_scoring_remain_enabled(self):
+    def test_required_files_and_balanced_scoring_remain_enabled(self):
         source = GRADER.read_text(encoding="utf-8")
         for filename in (
             "Assignment01.md",
@@ -168,7 +183,54 @@ portfolio
         self.assertIn('Decimal("0.90")', source)
         self.assertIn('Decimal("0.10")', source)
         self.assertIn("lfs_size_count", source)
-        self.assertIn("sizes above 100 MiB", source)
+        self.assertIn("value > 100", source)
+        self.assertIn("screenshot_credit_units", source)
+        self.assertIn("850 * evidence_matched / evidence_total", source)
+        self.assertIn("150", source)
+
+    def test_ocr_uncertainty_does_not_zero_valid_task_evidence(self):
+        source = GRADER.read_text(encoding="utf-8")
+        self.assertIn('prompt "$normalized_username" "$ocr_file"', source)
+        self.assertIn('username "$normalized_username" "$ocr_file"', source)
+        self.assertIn("identity not detected by OCR", source)
+        self.assertNotIn("identity_pattern=", source)
+
+    def test_filename_and_screenshot_folder_variations_are_tolerated(self):
+        source = GRADER.read_text(encoding="utf-8")
+        self.assertIn("resolve_screenshots.py", source)
+        self.assertIn("-iname screenshots", source)
+        self.assertNotIn(
+            'json_error "Required directory is missing: '
+            'Assignments/Assignment01/screenshots"',
+            source,
+        )
+
+    def test_required_files_still_score_when_screenshot_folder_is_missing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            submission = pathlib.Path(temporary)
+            (submission / "Assignment01.md").write_text(
+                "# Assignment 01\nCompleted work\n", encoding="utf-8"
+            )
+            with zipfile.ZipFile(
+                submission / "Assignment01_Solution.docx", "w"
+            ) as document:
+                document.writestr("word/document.xml", "<document />")
+            (submission / "Assignment01_Solution.pdf").write_bytes(
+                b"%PDF-1.4\n"
+            )
+
+            completed = subprocess.run(
+                ["bash", str(GRADER), str(submission), "10", "student-name"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            result = json.loads(completed.stdout.splitlines()[-1])
+            self.assertEqual(result["score"], 1)
+            self.assertIn(
+                "passed 3/3 required assignment-file checks",
+                result["feedback"],
+            )
 
 
 if __name__ == "__main__":
