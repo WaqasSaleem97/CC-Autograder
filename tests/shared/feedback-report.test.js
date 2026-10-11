@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseFeedback, statusColors } from "../scripts/feedback-report.js";
+import { parseFeedback, statusColors } from "../../scripts/feedback-report.js";
 
 test("parses provisional Lab1 credit as a manual-review result", () => {
   const report = parseFeedback(

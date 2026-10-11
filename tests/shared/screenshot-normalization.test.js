@@ -7,7 +7,7 @@ import {
   canonicalScreenshotName,
   normalizeScreenshotFilenames,
   normalizeScreenshotsDirectory
-} from "../scripts/screenshot-normalization.js";
+} from "../../scripts/screenshot-normalization.js";
 
 test("accepts capitalization variants of the screenshots directory", () => {
   for (const submittedName of ["Screenshots", "SCREENSHOTS", "ScreenShots"]) {

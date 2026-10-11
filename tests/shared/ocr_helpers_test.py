@@ -7,7 +7,7 @@ import unittest
 
 from PIL import Image, ImageDraw
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from scripts.ocr_evidence import prompt_matches, username_matches
 from scripts.ocr_screenshot import extract_bright_fields

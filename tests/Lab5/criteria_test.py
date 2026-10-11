@@ -7,7 +7,7 @@ import subprocess
 import unittest
 
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 GRADER = ROOT / "tests" / "Lab5" / "test.sh"
 SOURCE = GRADER.read_text(encoding="utf-8")
 
