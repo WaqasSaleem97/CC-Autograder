@@ -160,40 +160,50 @@ jobs:
             python3-pil
       - name: Select trusted test script automatically
         env:
+          COURSE_ID: ${{ inputs.course_id }}
           SUBMISSION_PATH: ${{ inputs.submission_path }}
         run: |
+          case "${COURSE_ID,,}" in
+            "cc") TEST_COURSE="CC" ;;
+            "devops") TEST_COURSE="DevOps" ;;
+            *)
+              echo "::error::Unsupported test course: $COURSE_ID. Use CC or DevOps."
+              exit 1
+              ;;
+          esac
+
           case "$SUBMISSION_PATH" in
-            "Labs/Lab01") TEST_SCRIPT="tests/Lab1/test.sh" ;;
-            "Labs/Lab02") TEST_SCRIPT="tests/Lab2/test.sh" ;;
-            "Labs/Lab03") TEST_SCRIPT="tests/Lab3/test.sh" ;;
-            "Labs/Lab04") TEST_SCRIPT="tests/Lab4/test.sh" ;;
-            "Labs/Lab05") TEST_SCRIPT="tests/Lab5/test.sh" ;;
-            "Labs/Lab06") TEST_SCRIPT="tests/Lab6/test.sh" ;;
-            "Labs/Lab07") TEST_SCRIPT="tests/Lab7/test.sh" ;;
-            "Labs/Lab08") TEST_SCRIPT="tests/Lab8/test.sh" ;;
-            "Labs/Lab09") TEST_SCRIPT="tests/Lab9/test.sh" ;;
-            "Labs/Lab10") TEST_SCRIPT="tests/Lab10/test.sh" ;;
-            "Labs/Lab11") TEST_SCRIPT="tests/Lab11/test.sh" ;;
-            "Labs/Lab12") TEST_SCRIPT="tests/Lab12/test.sh" ;;
-            "Labs/Lab13") TEST_SCRIPT="tests/Lab13/test.sh" ;;
-            "Labs/Lab14") TEST_SCRIPT="tests/Lab14/test.sh" ;;
-            "Labs/Lab15") TEST_SCRIPT="tests/Lab15/test.sh" ;;
-            "Labs/Lab16") TEST_SCRIPT="tests/Lab16/test.sh" ;;
-            "Labs/Mid") TEST_SCRIPT="tests/LabMid/test.sh" ;;
-            "Labs/Final") TEST_SCRIPT="tests/LabFinal/test.sh" ;;
-            "Assignments/Assignment01") TEST_SCRIPT="tests/Assignment01/test.sh" ;;
-            "Assignments/Assignment02") TEST_SCRIPT="tests/Assignment02/test.sh" ;;
-            "Assignments/Assignment03") TEST_SCRIPT="tests/Assignment03/test.sh" ;;
-            "Assignments/Assignment04") TEST_SCRIPT="tests/Assignment04/test.sh" ;;
-            "Assignments/Assignment05") TEST_SCRIPT="tests/Assignment05/test.sh" ;;
-            "Quiz/Quiz01") TEST_SCRIPT="tests/Quiz01/test.sh" ;;
-            "Quiz/Quiz02") TEST_SCRIPT="tests/Quiz02/test.sh" ;;
-            "Quiz/Quiz03") TEST_SCRIPT="tests/Quiz03/test.sh" ;;
-            "Quiz/Quiz04") TEST_SCRIPT="tests/Quiz04/test.sh" ;;
-            "Quiz/Quiz05") TEST_SCRIPT="tests/Quiz05/test.sh" ;;
-            "Project") TEST_SCRIPT="tests/Project/test.sh" ;;
-            "MidExam") TEST_SCRIPT="tests/MidExam/test.sh" ;;
-            "FinalExam") TEST_SCRIPT="tests/FinalExam/test.sh" ;;
+            "Labs/Lab01") TEST_SCRIPT="tests/$TEST_COURSE/Lab1/test.sh" ;;
+            "Labs/Lab02") TEST_SCRIPT="tests/$TEST_COURSE/Lab2/test.sh" ;;
+            "Labs/Lab03") TEST_SCRIPT="tests/$TEST_COURSE/Lab3/test.sh" ;;
+            "Labs/Lab04") TEST_SCRIPT="tests/$TEST_COURSE/Lab4/test.sh" ;;
+            "Labs/Lab05") TEST_SCRIPT="tests/$TEST_COURSE/Lab5/test.sh" ;;
+            "Labs/Lab06") TEST_SCRIPT="tests/$TEST_COURSE/Lab6/test.sh" ;;
+            "Labs/Lab07") TEST_SCRIPT="tests/$TEST_COURSE/Lab7/test.sh" ;;
+            "Labs/Lab08") TEST_SCRIPT="tests/$TEST_COURSE/Lab8/test.sh" ;;
+            "Labs/Lab09") TEST_SCRIPT="tests/$TEST_COURSE/Lab9/test.sh" ;;
+            "Labs/Lab10") TEST_SCRIPT="tests/$TEST_COURSE/Lab10/test.sh" ;;
+            "Labs/Lab11") TEST_SCRIPT="tests/$TEST_COURSE/Lab11/test.sh" ;;
+            "Labs/Lab12") TEST_SCRIPT="tests/$TEST_COURSE/Lab12/test.sh" ;;
+            "Labs/Lab13") TEST_SCRIPT="tests/$TEST_COURSE/Lab13/test.sh" ;;
+            "Labs/Lab14") TEST_SCRIPT="tests/$TEST_COURSE/Lab14/test.sh" ;;
+            "Labs/Lab15") TEST_SCRIPT="tests/$TEST_COURSE/Lab15/test.sh" ;;
+            "Labs/Lab16") TEST_SCRIPT="tests/$TEST_COURSE/Lab16/test.sh" ;;
+            "Labs/Mid") TEST_SCRIPT="tests/$TEST_COURSE/LabMid/test.sh" ;;
+            "Labs/Final") TEST_SCRIPT="tests/$TEST_COURSE/LabFinal/test.sh" ;;
+            "Assignments/Assignment01") TEST_SCRIPT="tests/$TEST_COURSE/Assignment01/test.sh" ;;
+            "Assignments/Assignment02") TEST_SCRIPT="tests/$TEST_COURSE/Assignment02/test.sh" ;;
+            "Assignments/Assignment03") TEST_SCRIPT="tests/$TEST_COURSE/Assignment03/test.sh" ;;
+            "Assignments/Assignment04") TEST_SCRIPT="tests/$TEST_COURSE/Assignment04/test.sh" ;;
+            "Assignments/Assignment05") TEST_SCRIPT="tests/$TEST_COURSE/Assignment05/test.sh" ;;
+            "Quiz/Quiz01") TEST_SCRIPT="tests/$TEST_COURSE/Quiz01/test.sh" ;;
+            "Quiz/Quiz02") TEST_SCRIPT="tests/$TEST_COURSE/Quiz02/test.sh" ;;
+            "Quiz/Quiz03") TEST_SCRIPT="tests/$TEST_COURSE/Quiz03/test.sh" ;;
+            "Quiz/Quiz04") TEST_SCRIPT="tests/$TEST_COURSE/Quiz04/test.sh" ;;
+            "Quiz/Quiz05") TEST_SCRIPT="tests/$TEST_COURSE/Quiz05/test.sh" ;;
+            "Project") TEST_SCRIPT="tests/$TEST_COURSE/Project/test.sh" ;;
+            "MidExam") TEST_SCRIPT="tests/$TEST_COURSE/MidExam/test.sh" ;;
+            "FinalExam") TEST_SCRIPT="tests/$TEST_COURSE/FinalExam/test.sh" ;;
             *)
               echo "::error::Unsupported submission path: $SUBMISSION_PATH"
               exit 1
@@ -254,40 +264,50 @@ jobs:
       - run: npm ci
       - name: Select trusted test script automatically
         env:
+          COURSE_ID: ${{ inputs.course_id }}
           SUBMISSION_PATH: ${{ inputs.submission_path }}
         run: |
+          case "${COURSE_ID,,}" in
+            "cc") TEST_COURSE="CC" ;;
+            "devops") TEST_COURSE="DevOps" ;;
+            *)
+              echo "::error::Unsupported test course: $COURSE_ID. Use CC or DevOps."
+              exit 1
+              ;;
+          esac
+
           case "$SUBMISSION_PATH" in
-            "Labs/Lab01") TEST_SCRIPT="tests/Lab1/test.sh" ;;
-            "Labs/Lab02") TEST_SCRIPT="tests/Lab2/test.sh" ;;
-            "Labs/Lab03") TEST_SCRIPT="tests/Lab3/test.sh" ;;
-            "Labs/Lab04") TEST_SCRIPT="tests/Lab4/test.sh" ;;
-            "Labs/Lab05") TEST_SCRIPT="tests/Lab5/test.sh" ;;
-            "Labs/Lab06") TEST_SCRIPT="tests/Lab6/test.sh" ;;
-            "Labs/Lab07") TEST_SCRIPT="tests/Lab7/test.sh" ;;
-            "Labs/Lab08") TEST_SCRIPT="tests/Lab8/test.sh" ;;
-            "Labs/Lab09") TEST_SCRIPT="tests/Lab9/test.sh" ;;
-            "Labs/Lab10") TEST_SCRIPT="tests/Lab10/test.sh" ;;
-            "Labs/Lab11") TEST_SCRIPT="tests/Lab11/test.sh" ;;
-            "Labs/Lab12") TEST_SCRIPT="tests/Lab12/test.sh" ;;
-            "Labs/Lab13") TEST_SCRIPT="tests/Lab13/test.sh" ;;
-            "Labs/Lab14") TEST_SCRIPT="tests/Lab14/test.sh" ;;
-            "Labs/Lab15") TEST_SCRIPT="tests/Lab15/test.sh" ;;
-            "Labs/Lab16") TEST_SCRIPT="tests/Lab16/test.sh" ;;
-            "Labs/Mid") TEST_SCRIPT="tests/LabMid/test.sh" ;;
-            "Labs/Final") TEST_SCRIPT="tests/LabFinal/test.sh" ;;
-            "Assignments/Assignment01") TEST_SCRIPT="tests/Assignment01/test.sh" ;;
-            "Assignments/Assignment02") TEST_SCRIPT="tests/Assignment02/test.sh" ;;
-            "Assignments/Assignment03") TEST_SCRIPT="tests/Assignment03/test.sh" ;;
-            "Assignments/Assignment04") TEST_SCRIPT="tests/Assignment04/test.sh" ;;
-            "Assignments/Assignment05") TEST_SCRIPT="tests/Assignment05/test.sh" ;;
-            "Quiz/Quiz01") TEST_SCRIPT="tests/Quiz01/test.sh" ;;
-            "Quiz/Quiz02") TEST_SCRIPT="tests/Quiz02/test.sh" ;;
-            "Quiz/Quiz03") TEST_SCRIPT="tests/Quiz03/test.sh" ;;
-            "Quiz/Quiz04") TEST_SCRIPT="tests/Quiz04/test.sh" ;;
-            "Quiz/Quiz05") TEST_SCRIPT="tests/Quiz05/test.sh" ;;
-            "Project") TEST_SCRIPT="tests/Project/test.sh" ;;
-            "MidExam") TEST_SCRIPT="tests/MidExam/test.sh" ;;
-            "FinalExam") TEST_SCRIPT="tests/FinalExam/test.sh" ;;
+            "Labs/Lab01") TEST_SCRIPT="tests/$TEST_COURSE/Lab1/test.sh" ;;
+            "Labs/Lab02") TEST_SCRIPT="tests/$TEST_COURSE/Lab2/test.sh" ;;
+            "Labs/Lab03") TEST_SCRIPT="tests/$TEST_COURSE/Lab3/test.sh" ;;
+            "Labs/Lab04") TEST_SCRIPT="tests/$TEST_COURSE/Lab4/test.sh" ;;
+            "Labs/Lab05") TEST_SCRIPT="tests/$TEST_COURSE/Lab5/test.sh" ;;
+            "Labs/Lab06") TEST_SCRIPT="tests/$TEST_COURSE/Lab6/test.sh" ;;
+            "Labs/Lab07") TEST_SCRIPT="tests/$TEST_COURSE/Lab7/test.sh" ;;
+            "Labs/Lab08") TEST_SCRIPT="tests/$TEST_COURSE/Lab8/test.sh" ;;
+            "Labs/Lab09") TEST_SCRIPT="tests/$TEST_COURSE/Lab9/test.sh" ;;
+            "Labs/Lab10") TEST_SCRIPT="tests/$TEST_COURSE/Lab10/test.sh" ;;
+            "Labs/Lab11") TEST_SCRIPT="tests/$TEST_COURSE/Lab11/test.sh" ;;
+            "Labs/Lab12") TEST_SCRIPT="tests/$TEST_COURSE/Lab12/test.sh" ;;
+            "Labs/Lab13") TEST_SCRIPT="tests/$TEST_COURSE/Lab13/test.sh" ;;
+            "Labs/Lab14") TEST_SCRIPT="tests/$TEST_COURSE/Lab14/test.sh" ;;
+            "Labs/Lab15") TEST_SCRIPT="tests/$TEST_COURSE/Lab15/test.sh" ;;
+            "Labs/Lab16") TEST_SCRIPT="tests/$TEST_COURSE/Lab16/test.sh" ;;
+            "Labs/Mid") TEST_SCRIPT="tests/$TEST_COURSE/LabMid/test.sh" ;;
+            "Labs/Final") TEST_SCRIPT="tests/$TEST_COURSE/LabFinal/test.sh" ;;
+            "Assignments/Assignment01") TEST_SCRIPT="tests/$TEST_COURSE/Assignment01/test.sh" ;;
+            "Assignments/Assignment02") TEST_SCRIPT="tests/$TEST_COURSE/Assignment02/test.sh" ;;
+            "Assignments/Assignment03") TEST_SCRIPT="tests/$TEST_COURSE/Assignment03/test.sh" ;;
+            "Assignments/Assignment04") TEST_SCRIPT="tests/$TEST_COURSE/Assignment04/test.sh" ;;
+            "Assignments/Assignment05") TEST_SCRIPT="tests/$TEST_COURSE/Assignment05/test.sh" ;;
+            "Quiz/Quiz01") TEST_SCRIPT="tests/$TEST_COURSE/Quiz01/test.sh" ;;
+            "Quiz/Quiz02") TEST_SCRIPT="tests/$TEST_COURSE/Quiz02/test.sh" ;;
+            "Quiz/Quiz03") TEST_SCRIPT="tests/$TEST_COURSE/Quiz03/test.sh" ;;
+            "Quiz/Quiz04") TEST_SCRIPT="tests/$TEST_COURSE/Quiz04/test.sh" ;;
+            "Quiz/Quiz05") TEST_SCRIPT="tests/$TEST_COURSE/Quiz05/test.sh" ;;
+            "Project") TEST_SCRIPT="tests/$TEST_COURSE/Project/test.sh" ;;
+            "MidExam") TEST_SCRIPT="tests/$TEST_COURSE/MidExam/test.sh" ;;
+            "FinalExam") TEST_SCRIPT="tests/$TEST_COURSE/FinalExam/test.sh" ;;
             *)
               echo "::error::Unsupported submission path: $SUBMISSION_PATH"
               exit 1

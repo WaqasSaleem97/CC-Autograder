@@ -1,6 +1,14 @@
-# CC Autograder
+# CC and DevOps Autograder
 
-This generalized workflow grades any trusted assessment directory in approved students' repositories. Assessment category, name, repository, submission path, test script, maximum marks, branch, section, and student selection are entered when the workflow runs.
+This generalized workflow grades trusted CC and DevOps assessments in approved students' repositories. Enter `CC` or `DevOps` as the course ID so the workflow selects the matching course-specific test folder.
+
+The test layout is:
+
+- `tests/CC/` for CC labs and assignments.
+- `tests/DevOps/` for DevOps labs and assignments.
+- `tests/shared/` for reusable autograder regression tests.
+
+Lab 1, Lab 2, and Lab 3 currently have equivalent graders in both course folders because these labs are common to CC and DevOps.
 
 ## Required GitHub settings
 
@@ -42,7 +50,7 @@ unless the result emails should be sent again.
 The workflow calls:
 
 ```bash
-bash tests/YourTest/test.sh /absolute/student/submission/path TOTAL_MARKS
+bash tests/CC/YourTest/test.sh /absolute/student/submission/path TOTAL_MARKS
 ```
 
 The final output line must be JSON:
