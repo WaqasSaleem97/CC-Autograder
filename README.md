@@ -106,14 +106,13 @@ The Assignment 01 grader is aligned with the current question in
 The Lab 04 grader is aligned with the current question in
 `CC_F26/Labs/Lab04/README.md`.
 
-- The score uses 64 equal required checks: 61 required screenshots,
+- The score uses 41 equal required checks: 38 core-task screenshots,
   `workspace/python_project`, `workspace/java_app_copy`, and
   `Lab4_Solution.pdf`.
-- `vm_login.png`, `sudo_whoami.png`, `deluser.png`, the four bonus-script
-  screenshots, and `Q5_user_removed.png` are optional and do not reduce or
-  increase the automated score.
-- Published `Q1_...` through `Q5_...` names are resolved after the shared
-  case-insensitive filename and image-extension normalization.
+- `vm_login.png`, `sudo_whoami.png`, and `deluser.png` are optional and do not
+  reduce or increase the automated score.
+- Bonus Task 7 and all exam-evaluation questions are excluded completely from
+  automated grading.
 - Main-user terminal evidence must show the registered
   `<github-username>@ubuntu` prompt. After `su - lab4user`, the active prompt
   may instead be `lab4user@ubuntu`. Username matching is case-insensitive and
@@ -127,6 +126,28 @@ The Lab 04 grader is aligned with the current question in
   both required workspace directories. The solution report must be the exact,
   valid `Lab4_Solution.pdf`; an obsolete Word or Markdown report is not
   required.
+
+## Lab 05 grading
+
+The Lab 05 grader is aligned with the current question in
+`CC_F26/Labs/Lab05/README.md`.
+
+- The score uses 71 equal required checks: 69 screenshots from Tasks 1 through
+  12, `workspace/k8s-sample.yaml`, and `Lab5_Solution.pdf`.
+- The Docker Desktop exam evaluation is excluded completely from automated
+  grading.
+- `task9_vim_install.png` is conditional evidence and is reported without
+  increasing or reducing the score.
+- Task 8 accepts either the GUI-launch screenshot or the documented CLI-version
+  screenshot for Audacity and OBS Studio.
+- The shared normalizer ignores screenshot-folder capitalization, screenshot
+  filename capitalization, image-extension differences, and repeated image
+  extensions such as `.png.png`.
+- Terminal identity matching is case-insensitive and tolerates small OCR errors.
+- The final Kubernetes manifest must contain the required Pod, annotation,
+  container, port, and restart-policy fields; temporary substitutions must have
+  been removed.
+- The solution report must be the exact, valid `Lab5_Solution.pdf`.
 
 ## Install and verify
 

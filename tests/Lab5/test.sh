@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-# Grade Lab 5 screenshot evidence.
+# Grade the core Lab 05 requirements from Tasks 1 through 12.
 #
 # Usage:
 #   test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME]
@@ -63,6 +63,7 @@ fi
 
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if [[ ! -d "$screenshots_dir" ]]; then
   json_error "Required directory is missing: Labs/Lab05/screenshots"
@@ -101,63 +102,61 @@ if [[ ! "$github_username" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] |
 fi
 
 normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
-escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()]/\\&/g')"
 
 # Format:
-# filename or comma-separated alternative filenames|identity|required OCR
-# expressions separated by ;;
+# filename or comma-separated alternatives|identity|required OCR expressions
 #
 # Identity flags:
-#   none   - no username requirement
-#   prompt - a terminal prompt containing <GitHub username>@<host> must appear
+#   none   - no terminal identity requirement
+#   prompt - a terminal prompt containing <GitHub username>@ubuntu must appear
 #
-# An OCR expression beginning with ! is forbidden evidence and must be absent.
+# Expressions separated by ;; are all required. An expression beginning with !
+# is forbidden and must be absent.
 readarray -t criteria <<'EOF'
 task1_java_suggestion.png|prompt|java;;(command[[:space:]]+not[[:space:]]+found|can[[:space:]]+be[[:space:]]+found|sudo[[:space:]]+apt[[:space:]]+install)
-task1_java_install.png|none|apt[[:space:]]+install;;(default-jre|openjdk|java);;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers)
+task1_java_install.png|none|apt[[:space:]]+install;;(default-jre|openjdk|java);;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers|already[[:space:]]+the[[:space:]]+newest)
 task1_java_version.png|prompt|java[[:space:]]+--version;;(openjdk|java);;[0-9]+[.][0-9]+
 task1_java_remove.png|none|apt[[:space:]]+remove;;(default-jre|openjdk|java);;(removing|will[[:space:]]+be[[:space:]]+removed|processing[[:space:]]+triggers)
 task1_java_not_found.png|prompt|java;;(command[[:space:]]+not[[:space:]]+found|can[[:space:]]+be[[:space:]]+found|sudo[[:space:]]+apt[[:space:]]+install)
 task1_hash_clear.png|prompt|hash[[:space:]]+-r;;java;;(command[[:space:]]+not[[:space:]]+found|can[[:space:]]+be[[:space:]]+found|sudo[[:space:]]+apt[[:space:]]+install)
-task2_aptget_install.png|none|apt-get;;(update|install);;(default-jre|openjdk|java);;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers)
+task2_aptget_install.png|none|apt[[:space:]-]*get;;install;;(default-jre|openjdk|java);;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers|already[[:space:]]+the[[:space:]]+newest)
 task2_java_version_after_aptget.png|prompt|java[[:space:]]+--version;;(openjdk|java);;[0-9]+[.][0-9]+
-task2_aptget_remove.png|none|apt-get[[:space:]]+remove;;(default-jre|openjdk|java);;(removing|will[[:space:]]+be[[:space:]]+removed|processing[[:space:]]+triggers)
+task2_aptget_remove.png|none|apt[[:space:]-]*get;;remove;;(default-jre|openjdk|java);;(removing|will[[:space:]]+be[[:space:]]+removed|processing[[:space:]]+triggers)
 task2_hash_after_remove.png|prompt|hash[[:space:]]+-r;;java;;(command[[:space:]]+not[[:space:]]+found|can[[:space:]]+be[[:space:]]+found|sudo[[:space:]]+apt[[:space:]]+install)
 task3_apt_update.png|none|apt[[:space:]]+update;;(reading[[:space:]]+package[[:space:]]+lists|hit:|get:|all[[:space:]]+packages[[:space:]]+are[[:space:]]+up[[:space:]]+to[[:space:]]+date)
 task3_apt_upgrade.png|none|apt[[:space:]]+upgrade;;(upgraded|newly[[:space:]]+installed|not[[:space:]]+upgraded|calculating[[:space:]]+upgrade)
-task3_explanation.png|none|apt[[:space:]]+update;;(package[[:space:]]+index|package[[:space:]]+list|refresh);;apt[[:space:]]+upgrade;;(installed[[:space:]]+packages|newer[[:space:]]+versions|updates)
+task3_explanation.png|none|apt[[:space:]]+update;;(package[[:space:]]+index|package[[:space:]]+list|metadata|refresh);;apt[[:space:]]+upgrade;;(installed[[:space:]]+packages|newer[[:space:]]+versions|available[[:space:]]+upgrades|updates)
 task4_snap_install.png|none|snap[[:space:]]+install;;classic;;code;;(installed|visual[[:space:]]+studio[[:space:]]+code)
 task4_snap_list.png|prompt|snap[[:space:]]+list[[:space:]]+code;;(code|vscode);;(version|publisher|rev|tracking)
-task4_code_version_or_info.png|prompt|(code[[:space:]]+--version|snap[[:space:]]+info[[:space:]]+code);;[0-9]+[.][0-9]+
-task4_snap_bin_location.png|prompt|/snap/bin;;grep[[:space:]]+code;;code
+task4_code_version_or_info.png|prompt|code[[:space:]]+--version;;[0-9]+[.][0-9]+
+task4_snap_bin_location.png|prompt|ls[[:space:]]+-l;;/snap/bin/code;;code
 task5_update.png|none|apt[[:space:]]+update;;apt[[:space:]]+upgrade;;(upgraded|package[[:space:]]+lists|up[[:space:]]+to[[:space:]]+date)
 task5_xfce_install.png|none|apt[[:space:]]+install;;xfce4;;xfce4-goodies;;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers)
-task5_xrdp_enable.png|prompt|(apt[[:space:]]+install[[:space:]]+xrdp|systemctl[[:space:]]+enable[[:space:]]+--now[[:space:]]+xrdp);;xrdp
+task5_xrdp_enable.png|prompt|xrdp;;(apt[[:space:]]+install|systemctl[[:space:]]+enable|adduser);;(enable|ssl-cert|installed|created[[:space:]]+symlink)
 task5_xrdp_status.png|prompt|systemctl[[:space:]]+status[[:space:]]+xrdp;;active[[:space:]]*\(running\)
 task5_xsession.png|prompt|xfce4-session;;[.]xsession
 task5_rdp_connect.png|none|(xfce|xrdp|remote[[:space:]]+desktop|applications);;(desktop|session|terminal|ubuntu)
 task5_vscode_launch.png|none|(visual[[:space:]]+studio[[:space:]]+code|welcome);;(file|edit|selection);;(view|terminal|extensions)
-task6_lightdm_install.png|none|apt[[:space:]]+install;;lightdm;;lightdm-gtk-greeter;;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers)
+task6_lightdm_install.png|none|apt[[:space:]]+install;;lightdm;;lightdm-gtk-greeter;;(setting[[:space:]]+up|newly[[:space:]]+installed|processing[[:space:]]+triggers|already[[:space:]]+the[[:space:]]+newest)
 task6_lightdm_config.png|prompt|lightdm[.]conf[.]d;;greeter-session;;lightdm-gtk-greeter;;user-session;;xfce
-task6_lightdm_cleanup.png|prompt|[.]Xauthority;;cache/sessions;;chown;;/home/
-task6_lightdm_restart.png|prompt|systemctl[[:space:]]+restart[[:space:]]+lightdm
-task6_gui_enable_boot.png|prompt|systemctl[[:space:]]+enable[[:space:]]+lightdm;;set-default[[:space:]]+graphical[.]target
+task6_lightdm_cleanup.png|prompt|rm;;[.]Xauthority;;cache/sessions
+task6_lightdm_restart.png|prompt|systemctl[[:space:]]+(restart|status)[[:space:]]+lightdm;;active[[:space:]]*\(running\)
+task6_gui_enable_boot.png|prompt|systemctl[[:space:]]+enable[[:space:]]+lightdm;;set-default[[:space:]]+graphical[.]target;;graphical[.]target
 task6_after_reboot_gui.png|none|(lightdm|ubuntu|xfce);;(login|password|session)
-task6_gui_disable_boot.png|prompt|set-default[[:space:]]+multi-user[.]target;;systemctl[[:space:]]+disable[[:space:]]+lightdm
+task6_gui_disable_boot.png|prompt|set-default[[:space:]]+multi-user[.]target;;systemctl[[:space:]]+disable[[:space:]]+lightdm;;multi-user[.]target
 task6_after_reboot_cli.png|none|(ubuntu|linux);;(login:|tty[0-9]+|last[[:space:]]+login|welcome)
-task6_gui_start.png|prompt|systemctl[[:space:]]+start[[:space:]]+lightdm
-task6_gui_stop.png|prompt|systemctl[[:space:]]+stop[[:space:]]+lightdm
-task6_gui_start_command.png|prompt|systemctl[[:space:]]+start[[:space:]]+lightdm
+task6_gui_start.png|prompt|systemctl[[:space:]]+(start|is-active)[[:space:]]+lightdm;;^[[:space:]]*active[[:space:]]*$
 task6_vscode_launch.png|none|(visual[[:space:]]+studio[[:space:]]+code|welcome);;(file|edit|selection);;(view|terminal|extensions)
+task6_gui_stop.png|prompt|systemctl[[:space:]]+(stop|is-active)[[:space:]]+lightdm;;inactive
 task7_install_chrome_error.png|prompt|apt[[:space:]]+install[[:space:]]+google-chrome-stable;;(unable[[:space:]]+to[[:space:]]+locate[[:space:]]+package|has[[:space:]]+no[[:space:]]+installation[[:space:]]+candidate|couldn.t[[:space:]]+find)
-task7_ls_etc_apt.png|prompt|ls[[:space:]]+-la[[:space:]]+/etc/apt;;(sources[.]list|sources[.]list[.]d);;(keyrings|trusted[.]gpg)
-task7_cat_sources_list.png|prompt|cat[[:space:]]+/etc/apt/sources[.]list;;(deb|ubuntu|source|moved)
 task7_ls_sources_list_d.png|prompt|ls[[:space:]]+-la[[:space:]]+/etc/apt/sources[.]list[.]d;;(ubuntu[.]sources|sources|total)
-task7_cat_ubuntu_sources.png|prompt|cat[[:space:]]+/etc/apt/sources[.]list[.]d/ubuntu[.]sources;;(Types:|URIs:|Suites:|Components:|no[[:space:]]+such[[:space:]]+file|does[[:space:]]+not[[:space:]]+exist)
-task7_edit_ubuntu_sources.png,task7_create_google_chrome_list.png|none|(dl[.]google[.]com/linux/chrome/deb|google-chrome[.]list);;stable;;main;;google[.]gpg
-task7_add_key.png,task7_add_key_alt.png|prompt|curl;;linux_signing_key[.]pub;;gpg;;dearmor;;google[.]gpg
-task7_apt_update.png,task7_apt_update_alt.png|none|apt[[:space:]]+update;;(dl[.]google[.]com|google[[:space:]]+chrome);;(package[[:space:]]+lists|hit:|get:)
-task7_install_chrome.png,task7_install_chrome_alt.png|none|apt[[:space:]]+install[[:space:]]+google-chrome-stable;;(setting[[:space:]]+up[[:space:]]+google-chrome|newly[[:space:]]+installed|google-chrome-stable)
+task7_prerequisites.png|none|apt[[:space:]]+install;;curl;;gpg
+task7_add_key.png|prompt|curl;;linux_signing_key[.]pub;;gpg;;dearmor;;google-chrome[.]gpg
+task7_create_google_chrome_list.png|prompt|https://dl[.]google[.]com/linux/chrome/deb/;;google-chrome[.]list;;signed-by;;stable;;main
+task7_verify_source.png|prompt|cat[[:space:]]+/etc/apt/sources[.]list[.]d/google-chrome[.]list;;https://dl[.]google[.]com/linux/chrome/deb/;;signed-by;;stable;;main
+task7_apt_update.png|none|apt[[:space:]]+update;;(dl[.]google[.]com|google[[:space:]]+chrome);;(package[[:space:]]+lists|hit:|get:)
+task7_install_chrome.png|none|apt[[:space:]]+install[[:space:]]+google-chrome-stable;;(setting[[:space:]]+up[[:space:]]+google-chrome|newly[[:space:]]+installed|google-chrome-stable)
+task7_chrome_version.png|prompt|google-chrome[[:space:]]+--version;;google[[:space:]]+chrome;;[0-9]+[.][0-9]+
 task8_add_ppa_audacity.png|none|add-apt-repository;;ppa:ubuntuhandbook1/audacity;;(repository|adding|PPA)
 task8_apt_update_audacity.png|none|apt[[:space:]]+update;;(audacity|ubuntuhandbook1);;(package[[:space:]]+lists|hit:|get:)
 task8_install_audacity.png|none|apt[[:space:]]+install[[:space:]]+audacity;;(setting[[:space:]]+up|newly[[:space:]]+installed|audacity)
@@ -167,9 +166,9 @@ task8_apt_update_obs.png|none|apt[[:space:]]+update;;(obsproject|obs-studio);;(p
 task8_install_obs.png|none|apt[[:space:]]+install[[:space:]]+obs-studio;;(setting[[:space:]]+up|newly[[:space:]]+installed|obs-studio)
 task8_obs_launch.png,task8_obs_version.png|none|(OBS[[:space:]]+Studio|obs);;(version|scenes|sources|audio[[:space:]]+mixer|controls)
 task9_vim_check.png|none|(VIM|Vi[[:space:]]+IMproved|command[[:space:]]+not[[:space:]]+found);;(version|help|install|~)
-task9_mkdir_cd.png|prompt|mkdir;;Lab5;;(cd|/Lab5)
+task9_mkdir_cd.png|prompt|mkdir;;Lab5;;(cd|/Lab5);;pwd
 task9_vim_edit.png|none|apiVersion:[[:space:]]+v1;;kind:[[:space:]]+Pod;;name:[[:space:]]+nginx-pod;;image:[[:space:]]+nginx:1[.]19;;containerPort:[[:space:]]+80
-task9_k8s_saved.png|prompt|ls[[:space:]]+-la;;k8s-sample[.]yaml
+task9_k8s_saved.png|prompt|ls[[:space:]]+-l;;k8s-sample[.]yaml;;apiVersion:[[:space:]]+v1;;kind:[[:space:]]+Pod
 task10_verify_annotation.png|prompt|cat[[:space:]]+k8s-sample[.]yaml;;annotations:;;lab:[[:space:]]+lesson11;;nginx-pod
 task10_verify_entering_temp_data.png|none|temp:[[:space:]]+do-not-keep;;k8s-sample[.]yaml
 task10_verify_no_temp_comment.png|prompt|cat[[:space:]]+k8s-sample[.]yaml;;annotations:;;lab:[[:space:]]+lesson11;;nginx-pod;;!temp:[[:space:]]+do-not-keep
@@ -183,39 +182,61 @@ task12_added_occurrences.png|none|nginx;;(comment|#|metadata|image)
 task12_cycle_matches.png|none|nginx;;(nginx-pod|image:[[:space:]]+nginx|k8s-sample[.]yaml)
 task12_substitute_result.png|none|webapp;;!nginx
 task12_undo_and_quit.png|none|nginx;;!webapp
-exam_evaluation_docker_desktop.png|none|docker[[:space:]]+desktop;;(engine[[:space:]]+running|running|containers|images|dashboard)
 EOF
 
 required_screenshots=${#criteria[@]}
+if (( required_screenshots != 69 )); then
+  json_error "Trusted Lab 5 grader configuration must contain exactly 69 core screenshot checks."
+fi
 
-# These are conditional, cleanup-only, redundant verification, or checklist
-# typo screenshots. They are reported but are not part of the score.
+# Conditional evidence is reported but never changes the score.
 optional_files=(
-  task7_alternate_remove.png
-  task7_alternate_edit.png
-  task7_remove_key.png
-  task7_list_sources_after_create.png
   task9_vim_install.png
-  task5_after_reboot_gui.png
-  task5_after_reboot_cli.png
 )
 
-# Return the first available filename from a comma-separated alternative set.
+# Resolve every accepted filename by stem. Case and image extensions, including
+# repeated extensions such as .png.png, do not affect the match.
+expected_screenshots=()
+for rule in "${criteria[@]}"; do
+  filename_spec="${rule%%|*}"
+  IFS=',' read -r -a candidates <<<"$filename_spec"
+  expected_screenshots+=("${candidates[@]}")
+done
+
+declare -A resolved_screenshots
+while IFS=$'\t' read -r expected actual; do
+  resolved_screenshots["$expected"]="$actual"
+done < <(
+  python3 "$grader_root/scripts/resolve_screenshots.py" \
+    "$screenshots_dir" "${expected_screenshots[@]}"
+)
+
 resolve_filename() {
   local filename_spec="$1"
   local candidate
+  local actual
+  local ambiguous=false
   local -a candidates=()
   IFS=',' read -r -a candidates <<<"$filename_spec"
+
   for candidate in "${candidates[@]}"; do
-    if [[ -f "$screenshots_dir/$candidate" ]]; then
+    actual="${resolved_screenshots[$candidate]:-}"
+    if [[ "$actual" == "__AMBIGUOUS__" ]]; then
+      ambiguous=true
+    elif [[ -n "$actual" && -f "$actual" ]]; then
       printf '%s\n' "$candidate"
       return 0
     fi
   done
+
+  if [[ "$ambiguous" == true ]]; then
+    printf '%s\n' "__AMBIGUOUS__"
+    return 0
+  fi
   return 1
 }
 
-# OCR every available required/alternative screenshot concurrently.
+# OCR all available required and alternative screenshots concurrently.
 ocr_dir="$(mktemp -d "/tmp/lab5-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -238,22 +259,21 @@ if (( ocr_jobs > 8 )); then
   ocr_jobs=8
 fi
 
-printf '%s\n' "${criteria[@]}" |
-  cut -d'|' -f1 |
-  while IFS= read -r filename_spec; do
-    resolve_filename "$filename_spec" || true
-  done |
-  sort -u |
-  xargs -r -P "$ocr_jobs" -I '{}' \
+for filename in "${expected_screenshots[@]}"; do
+  image="${resolved_screenshots[$filename]:-}"
+  [[ -f "$image" ]] && printf '%s\0%s\0' "$filename" "$image"
+done |
+  xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
-      source_image="$1/$2"
-      output_base="$3/${2%.*}"
-      tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
-    ' _ "$screenshots_dir" '{}' "$ocr_dir"
+      ocr_dir="$1"
+      helper="$2"
+      filename="$3"
+      source_image="$4"
+      python3 "$helper" "$source_image" "$ocr_dir/${filename%.*}.txt"
+    ' _ "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
 
-# Build an exact-duplicate index for the same logical task across all students
-# selected in this workflow. Alternative filenames are normalized to their
-# canonical task filename. Both matching students receive zero for that task.
+# Build one exact-duplicate index for screenshots with the same logical task
+# across all students selected in the workflow run.
 repo_root="$(git -C "$submission_dir" rev-parse --show-toplevel 2>/dev/null || true)"
 duplicate_index=""
 
@@ -275,24 +295,29 @@ root = pathlib.Path(sys.argv[1]).resolve()
 relative = pathlib.PurePosixPath(sys.argv[2])
 output = pathlib.Path(sys.argv[3])
 groups = defaultdict(list)
-
-canonical_names = {
-    "task7_create_google_chrome_list.png": "task7_edit_ubuntu_sources.png",
-    "task7_add_key_alt.png": "task7_add_key.png",
-    "task7_apt_update_alt.png": "task7_apt_update.png",
-    "task7_install_chrome_alt.png": "task7_install_chrome.png",
-    "task8_audacity_version.png": "task8_audacity_launch.png",
-    "task8_obs_version.png": "task8_obs_launch.png",
+image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif")
+aliases = {
+    "task8_audacity_version": "task8_audacity_launch",
+    "task8_obs_version": "task8_obs_launch",
 }
+
+def filename_key(name):
+    value = name.casefold().rstrip(".")
+    while True:
+        for extension in image_extensions:
+            if value.endswith(extension):
+                value = value[:-len(extension)].rstrip(".")
+                break
+        else:
+            return aliases.get(value, value)
 
 for repository in root.glob("*/*"):
     screenshot_dir = repository.joinpath(*relative.parts)
     if not screenshot_dir.is_dir():
         continue
     for image in screenshot_dir.iterdir():
-        if image.is_file() and image.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-            logical_name = canonical_names.get(image.name.lower(), image.name.lower())
-            groups[logical_name].append(image.resolve())
+        if image.is_file():
+            groups[filename_key(image.name)].append(image.resolve())
 
 duplicates = {}
 for paths in groups.values():
@@ -328,6 +353,11 @@ for rule in "${criteria[@]}"; do
   evidence_groups="${remainder#*|}"
   actual_filename="$(resolve_filename "$filename_spec" || true)"
 
+  if [[ "$actual_filename" == "__AMBIGUOUS__" ]]; then
+    feedback+=("$primary_filename: multiple files match when case and extensions are ignored (0)")
+    continue
+  fi
+
   if [[ -z "$actual_filename" ]]; then
     if [[ "$filename_spec" == *,* ]]; then
       feedback+=("$primary_filename: missing; accepted alternatives are $filename_spec (0)")
@@ -337,9 +367,8 @@ for rule in "${criteria[@]}"; do
     continue
   fi
 
-  image="$screenshots_dir/$actual_filename"
+  image="${resolved_screenshots[$actual_filename]}"
 
-  # Verify that Pillow can decode the image. No minimum-dimension rule is used.
   if ! python3 - "$image" <<'PY' >/dev/null 2>&1
 from PIL import Image
 import sys
@@ -373,8 +402,9 @@ PY
   fi
 
   if [[ "$identity_flag" == "prompt" ]]; then
-    if ! grep -Eqi "${escaped_username}[[:space:]]*@[[:space:]]*[[:alnum:]_.-]+" <<<"$ocr_text"; then
-      feedback+=("$actual_filename: ${github_username}@host terminal prompt was not clearly detected (0)")
+    if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+      prompt "$normalized_username" "$ocr_file"; then
+      feedback+=("$actual_filename: ${github_username}@ubuntu terminal prompt was not clearly detected (0)")
       continue
     fi
   fi
@@ -407,28 +437,124 @@ PY
   fi
 done
 
+# Validate the final manifest required in Labs/Lab05/workspace.
+manifest="$submission_dir/workspace/k8s-sample.yaml"
+manifest_problem=""
+if manifest_problem="$(python3 - "$manifest" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if not path.is_file() or path.stat().st_size == 0:
+    print("workspace/k8s-sample.yaml is missing or empty")
+    raise SystemExit(1)
+
+text = path.read_text(encoding="utf-8", errors="replace")
+if "\t" in text:
+    print("the manifest uses tab indentation, which is invalid YAML")
+    raise SystemExit(1)
+if re.search(r"\bwebapp\b|temp:\s*do-not-keep", text, flags=re.IGNORECASE):
+    print("the final manifest still contains temporary or substituted text")
+    raise SystemExit(1)
+
+records = []
+for number, line in enumerate(text.splitlines(), 1):
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        continue
+    records.append((number, len(line) - len(line.lstrip(" ")), stripped))
+
+def locate(pattern, start=0):
+    expression = re.compile(pattern, flags=re.IGNORECASE)
+    for index in range(start, len(records)):
+        if expression.fullmatch(records[index][2]):
+            return index
+    return -1
+
+api = locate(r"apiVersion:\s*v1")
+kind = locate(r"kind:\s*Pod", api + 1)
+metadata = locate(r"metadata:", kind + 1)
+pod_name = locate(r"name:\s*nginx-pod", metadata + 1)
+annotations = locate(r"annotations:", pod_name + 1)
+lab = locate(r"lab:\s*lesson11", annotations + 1)
+spec = locate(r"spec:", lab + 1)
+containers = locate(r"containers:", spec + 1)
+container_name = locate(r"-\s*name:\s*nginx", containers + 1)
+image = locate(r"image:\s*nginx:1[.]19", container_name + 1)
+ports = locate(r"ports:", image + 1)
+container_port = locate(r"-\s*containerPort:\s*80", ports + 1)
+restart = locate(r"restartPolicy:\s*Always", container_port + 1)
+
+positions = [
+    api, kind, metadata, pod_name, annotations, lab, spec, containers,
+    container_name, image, ports, container_port, restart,
+]
+if any(position < 0 for position in positions):
+    print("the manifest is missing one or more required Kubernetes fields")
+    raise SystemExit(1)
+
+if sum(1 for _line, indent, value in records if indent == 0 and value.lower() == "spec:") != 1:
+    print("the manifest must contain exactly one top-level spec section")
+    raise SystemExit(1)
+
+indent = lambda index: records[index][1]
+if not (
+    indent(metadata) == 0
+    and indent(pod_name) > indent(metadata)
+    and indent(annotations) == indent(pod_name)
+    and indent(lab) > indent(annotations)
+    and indent(spec) == 0
+    and indent(containers) > indent(spec)
+    and indent(container_name) > indent(containers)
+    and indent(image) > indent(container_name)
+    and indent(ports) == indent(image)
+    and indent(container_port) > indent(ports)
+    and indent(restart) == indent(containers)
+):
+    print("the required Kubernetes fields are not nested correctly")
+    raise SystemExit(1)
+PY
+)"; then
+  passed=$((passed + 1))
+  feedback+=("workspace/k8s-sample.yaml: passed")
+else
+  feedback+=("workspace/k8s-sample.yaml: $manifest_problem (0)")
+fi
+
+# Require the exact, non-empty PDF specified by the Lab 05 submission section.
+solution_pdf="$submission_dir/Lab5_Solution.pdf"
+pdf_problem=""
+if [[ ! -s "$solution_pdf" ]]; then
+  pdf_problem="Lab5_Solution.pdf is missing or empty"
+elif ! python3 - "$solution_pdf" <<'PY' >/dev/null 2>&1
+import sys
+from pathlib import Path
+
+with Path(sys.argv[1]).open("rb") as source:
+    assert source.read(5) == b"%PDF-"
+PY
+then
+  pdf_problem="Lab5_Solution.pdf is not a valid PDF file"
+fi
+
+if [[ -z "$pdf_problem" ]]; then
+  passed=$((passed + 1))
+  feedback+=("Lab5_Solution.pdf: passed")
+else
+  feedback+=("Lab5_Solution.pdf: $pdf_problem (0)")
+fi
+
 optional_present=0
 for optional_file in "${optional_files[@]}"; do
-  [[ -f "$screenshots_dir/$optional_file" ]] && optional_present=$((optional_present + 1))
+  canonical_optional="$(printf '%s' "$optional_file" | tr '[:upper:]' '[:lower:]')"
+  [[ -f "$screenshots_dir/$canonical_optional" ]] && optional_present=$((optional_present + 1))
 done
 
-# The submission section labels workspace and report files as optional, so
-# neither is included in the score. Report their presence for instructor use.
-word_report_present=false
-alternate_report_present=false
-if find "$submission_dir" -maxdepth 1 -type f \
-  \( -iname '*.doc' -o -iname '*.docx' \) -size +0c -print -quit |
-  grep -q .; then
-  word_report_present=true
+required=$((required_screenshots + 2))
+if (( required != 71 )); then
+  json_error "Trusted Lab 5 grader configuration must contain exactly 71 scored checks."
 fi
-if find "$submission_dir" -maxdepth 1 -type f \
-  \( -iname '*.pdf' -o -iname '*.md' \) \
-  ! -iname 'README.md' -size +0c -print -quit |
-  grep -q .; then
-  alternate_report_present=true
-fi
-
-required=$required_screenshots
 
 score="$(python3 - "$passed" "$required" "$total_marks" <<'PY'
 from decimal import Decimal, ROUND_HALF_UP
@@ -443,7 +569,7 @@ print(value)
 PY
 )"
 
-summary="Passed $passed/$required Lab 5 required checks. Optional screenshots present: $optional_present/${#optional_files[@]} (not scored). Optional reports: Word=$word_report_present, PDF-or-Markdown=$alternate_report_present. $(IFS='; '; echo "${feedback[*]}")"
+summary="Passed $passed/$required Lab 5 core checks. Conditional Vim-install evidence present: $optional_present/${#optional_files[@]} (not scored). $(IFS='; '; echo "${feedback[*]}")"
 node -e '
   console.log(JSON.stringify({
     score: Number(process.argv[1]),

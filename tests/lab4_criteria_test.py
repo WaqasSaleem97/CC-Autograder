@@ -62,32 +62,37 @@ def evidence_matches(filename: str, text: str) -> bool:
 
 class Lab4CriteriaTests(unittest.TestCase):
     def test_required_and_optional_counts_match_the_question(self):
-        self.assertEqual(len(CRITERIA), 61)
+        self.assertEqual(len(CRITERIA), 38)
         self.assertEqual(
             OPTIONAL,
             {
                 "vm_login.png",
                 "sudo_whoami.png",
                 "deluser.png",
-                "nano_run_demo.png",
-                "chmod_run_demo.png",
-                "run_demo_output.png",
-                "run_demo_output_sudo.png",
-                "Q5_user_removed.png",
             },
         )
         self.assertTrue(OPTIONAL.isdisjoint(CRITERIA))
+        self.assertIn("required_screenshots != 38", SOURCE)
 
     def test_optional_sudo_evidence_cannot_change_the_score(self):
         self.assertNotIn("sudo_whoami.png", CRITERIA)
         self.assertIn('required=$((required_screenshots + 3))', SOURCE)
 
-    def test_uppercase_exam_names_are_resolved_after_normalization(self):
+    def test_screenshot_names_are_resolved_after_normalization(self):
         self.assertIn('canonical_screenshot_name "$filename"', SOURCE)
         self.assertIn('image="$screenshots_dir/$canonical_filename"', SOURCE)
         self.assertIn('canonical_screenshot_name "$optional_file"', SOURCE)
-        self.assertIn("Q1_remote_connection.png", CRITERIA)
-        self.assertIn("Q5_authlog_analysis.png", CRITERIA)
+
+    def test_bonus_and_exam_evidence_are_completely_excluded(self):
+        self.assertFalse(any(re.match(r"Q[1-5]_", name) for name in CRITERIA))
+        for excluded in (
+            "nano_run_demo.png",
+            "chmod_run_demo.png",
+            "run_demo_output.png",
+            "run_demo_output_sudo.png",
+            "Q5_user_removed.png",
+        ):
+            self.assertNotIn(excluded, SOURCE)
 
     def test_vm_settings_does_not_require_a_brand_label(self):
         valid = """\
@@ -105,14 +110,6 @@ Hard Disk 40 GB
 """
         self.assertTrue(evidence_matches("vm_settings.png", valid))
         self.assertFalse(evidence_matches("vm_settings.png", missing_network))
-
-    def test_remote_connection_accepts_a_hostname_or_an_ip_address(self):
-        hostname = "ssh analyst@ubuntu-vm.local\nWelcome to Ubuntu"
-        address = "ssh analyst@192.168.56.110\nWelcome to Ubuntu"
-        no_ssh = "analyst@ubuntu:~$ whoami\nanalyst"
-        self.assertTrue(evidence_matches("Q1_remote_connection.png", hostname))
-        self.assertTrue(evidence_matches("Q1_remote_connection.png", address))
-        self.assertFalse(evidence_matches("Q1_remote_connection.png", no_ssh))
 
     def test_copy_verification_requires_both_project_directories(self):
         valid = """\
@@ -147,7 +144,6 @@ java_app
         self.assertTrue(evidence_matches("answers_md.png", all_directories))
         self.assertFalse(evidence_matches("answers_md.png", missing_bin))
         self.assertIn('minimum_words=20', SOURCE)
-        self.assertIn('minimum_words=15', SOURCE)
         self.assertIn("written explanation is too short", SOURCE)
 
     def test_current_workspace_and_pdf_requirements_are_enforced(self):

@@ -157,32 +157,12 @@ adduser_lab4user.png|prompt|(adduser|adding[[:space:]]+user);;lab4user
 lab4user_passwd.png|prompt|getent[[:space:]]+passwd[[:space:]]+lab4user;;lab4user;;/home/lab4user
 su_lab4user.png|lab4user|su[[:space:]]+-[[:space:]]+lab4user
 exit_back.png|prompt|exit
-Q1_remote_connection.png|prompt|ssh[[:space:]]+[^[:space:]@]+@[^[:space:]]+;;(welcome|last[[:space:]]+login|ubuntu)
-Q1_user_verification.png|prompt|whoami;;pwd;;/home/
-Q1_host_confirmation.png|prompt|(hostname|hostnamectl);;(ubuntu|static[[:space:]]+hostname|virtualization)
-Q2_root_listing.png|prompt|ls[[:space:]]+-la[[:space:]]+/;;(bin|etc);;usr;;var
-Q2_os_version.png|prompt|(cat[[:space:]]+/etc/os-release|lsb_release);;(ubuntu|PRETTY_NAME|VERSION)
-Q2_directory_evidence.png|prompt|(^|[^[:alnum:]_/.-])/bin([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/sbin([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/usr([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/opt([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/etc([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/dev([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/var([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/tmp([^[:alnum:]_/.-]|$)
-Q2_hidden_files.png|prompt|ls[[:space:]]+-la[[:space:]]+(~|/home);;[.](bashrc|profile|ssh)
-Q2_report_file.png|none|(nano|[.]md|markdown);;(^|[^[:alnum:]_/.-])/bin([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/usr/bin([^[:alnum:]_/.-]|$);;(^|[^[:alnum:]_/.-])/usr/local/bin([^[:alnum:]_/.-]|$)
-Q3_workspace_created.png|prompt|mkdir;;(~|/home/);;/
-Q3_files_created.png|prompt|(nano|touch|ls[[:space:]]+-la);;([.]env|hidden|[.]txt|file)
-Q3_backup_handling.png|prompt|cp;;mv;;rm
-Q3_workspace_backup.png|prompt|cp[[:space:]]+-r;;(workspace|backup|evidence)
-Q3_command_history.png|prompt|history;;(mkdir|cp|mv|rm)
-Q3_autocomplete.png|prompt|(workspace|backup|README|file|analysis|evidence)
-Q4_system_info.png|prompt|(uname[[:space:]]+-a|cat[[:space:]]+/etc/os-release|lsb_release);;(linux|ubuntu|kernel)
-Q4_resource_info.png|prompt|(cat[[:space:]]+/proc/cpuinfo|lscpu);;(free[[:space:]]+-h|memory);;(df[[:space:]]+-h|filesystem)
-Q4_process_list.png|prompt|ps[[:space:]]+aux;;(USER|PID);;(COMMAND|CMD)
-Q5_user_created.png|prompt|(adduser|adding[[:space:]]+user);;lab4user
-Q5_user_verified.png|prompt|getent[[:space:]]+passwd[[:space:]]+lab4user;;/home/lab4user
-Q5_user_login.png|lab4user|su[[:space:]]+-[[:space:]]+lab4user
-Q5_permission_denied.png|lab4user|sudo;;(permission[[:space:]]+denied|not[[:space:]]+in[[:space:]]+the[[:space:]]+sudoers|not[[:space:]]+allowed|may[[:space:]]+not[[:space:]]+run)
-Q5_switch_back.png|prompt|exit
-Q5_authlog_analysis.png|prompt|/var/log/auth[.]log;;lab4user;;(session|authentication|sudo|su|failed|accepted)
 EOF
 
 required_screenshots=${#criteria[@]}
+if (( required_screenshots != 38 )); then
+  json_error "Trusted Lab 4 grader configuration must contain exactly 38 core screenshot checks."
+fi
 
 # Explicitly optional evidence from the README. These files are reported but
 # do not increase or reduce the student's score.
@@ -190,11 +170,6 @@ optional_files=(
   vm_login.png
   sudo_whoami.png
   deluser.png
-  nano_run_demo.png
-  chmod_run_demo.png
-  run_demo_output.png
-  run_demo_output_sudo.png
-  Q5_user_removed.png
 )
 
 # OCR screenshots concurrently. By default, use the runner's available logical
@@ -375,9 +350,8 @@ PY
   # These screenshots must contain an explanation, not only the directory
   # names. OCR can lose punctuation, so use a modest word threshold instead of
   # enforcing exact sentences or phrasing.
-  if [[ "$filename" == "answers_md.png" || "$filename" == "Q2_report_file.png" ]]; then
-    minimum_words=15
-    [[ "$filename" == "answers_md.png" ]] && minimum_words=20
+  if [[ "$filename" == "answers_md.png" ]]; then
+    minimum_words=20
     word_count="$(python3 - "$ocr_file" <<'PY'
 import re
 import sys
