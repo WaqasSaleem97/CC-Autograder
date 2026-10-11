@@ -34,6 +34,13 @@ CRITERIA = load_criteria()
 
 def evidence_matches(filename: str, text: str) -> bool:
     _identity, expressions = CRITERIA[filename]
+    # Match the normalization used by test.sh: repair punctuation spacing and
+    # flatten OCR line wrapping before applying each independent indicator.
+    text = re.sub(r"\s*\.\s*", ".", text)
+    text = re.sub(r"\s*@\s*", "@", text)
+    text = re.sub(r"\s*/\s*", "/", text)
+    text = re.sub(r"\s*:\s*", ":", text)
+    text = re.sub(r"\s+", " ", text)
     return all(
         subprocess.run(
             ["grep", "-Eiq", "--", expression],
@@ -87,6 +94,16 @@ Repositories
             evidence_matches("task1_gitea_running.png", old_codespaces_page)
         )
 
+    def test_gitea_http_status_can_wrap_onto_the_next_ocr_line(self):
+        wrapped = """\
+student@ubuntu:~/Gitea$ docker compose ps
+gitea gitea/gitea:latest Up 20 seconds
+gitea_db postgres:17-alpine healthy
+Gitea HTTP status:
+200
+"""
+        self.assertTrue(evidence_matches("task1_gitea_running.png", wrapped))
+
     def test_gitea_push_requires_push_not_pull(self):
         valid = """\
 student@ubuntu:~/Assignment01$ git push -u gitea main
@@ -116,6 +133,20 @@ github https://github.com/student/Assignment01.git (push)
 """
         self.assertTrue(evidence_matches("task2_remotes.png", valid))
         self.assertFalse(evidence_matches("task2_remotes.png", github_only))
+
+    def test_remote_labels_and_urls_can_wrap_across_ocr_lines(self):
+        wrapped = """\
+student@ubuntu:~/Assignment01$ git remote -v
+gitea
+http://student@127.@.0.1:3600/student/Assignment01.git (fetch)
+gitea
+http://student@127.@.0.1:3600/student/Assignment01.git (push)
+github
+https://github.com/student/Assignment01.git (fetch)
+github
+https://github.com/student/Assignment01.git (push)
+"""
+        self.assertTrue(evidence_matches("task2_remotes.png", wrapped))
 
     def test_lfs_setup_requires_install_version_tracking_and_attributes(self):
         valid = """\
@@ -150,6 +181,15 @@ cat .gitattributes
 x.bin filter=lfs diff=lfs merge=lfs -text
 """
         self.assertTrue(evidence_matches("task3_lfs_setup.png", noisy_ocr))
+
+    def test_lfs_ls_files_tolerates_common_ocr_l_for_one_confusion(self):
+        noisy_ocr = """\
+student@ubuntu:~/Assignment01$ git 1fs 1s-Files --size
+file1.bin (151 MB)
+file2.bin (152 MB)
+file3.bin (153 MB)
+"""
+        self.assertTrue(evidence_matches("task3_lfs_files.png", noisy_ocr))
 
     def test_pages_repository_requires_both_source_files_and_public_status(self):
         valid = """\

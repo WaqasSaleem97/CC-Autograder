@@ -35,21 +35,24 @@ def allowed_ocr_edits(length: int) -> int:
         return 0
     if length < 10:
         return 1
-    if length < 16:
+    if length < 13:
         return 2
     return 3
 
 
 def candidate_tokens(text: str, expected_length: int, allowance: int) -> set[str]:
     result: set[str] = set()
-    for raw_line in unicodedata.normalize("NFKC", text).casefold().splitlines():
-        tokens = [compact(token) for token in re.findall(r"[a-z0-9-]+", raw_line)]
-        tokens = [token for token in tokens if token]
-        for index in range(len(tokens)):
-            for width in (1, 2, 3):
-                candidate = "".join(tokens[index : index + width])
-                if expected_length - allowance <= len(candidate) <= expected_length + allowance:
-                    result.add(candidate)
+    # OCR can split one username at a line boundary (for example, inside a
+    # browser URL). Treat adjacent tokens across lines the same as adjacent
+    # tokens on one line while keeping the matching window deliberately small.
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    tokens = [compact(token) for token in re.findall(r"[a-z0-9-]+", normalized)]
+    tokens = [token for token in tokens if token]
+    for index in range(len(tokens)):
+        for width in (1, 2, 3):
+            candidate = "".join(tokens[index : index + width])
+            if expected_length - allowance <= len(candidate) <= expected_length + allowance:
+                result.add(candidate)
     return result
 
 
@@ -92,10 +95,63 @@ def prompt_matches(expected: str, text: str) -> bool:
     return False
 
 
+RAW_CREDENTIAL_PATTERN = re.compile(
+    r"("
+    r"begin.*private\s+key|"
+    r"(?:akia|asia)[0-9a-z]{16}|"
+    r"ghp_[0-9a-z]{30,}|"
+    r"github_pat_[0-9a-z_]{30,}|"
+    r"aws_secret_access_key\s*=\s*[0-9a-z/+=]{20,}|"
+    r"https?://[^\s@/:]+:[^\s@/<>]{6,}@|"
+    r"authorization:\s*(?:token|bearer)\s+[0-9a-z._-]{12,}|"
+    r"(?:personal[\s_-]*access[\s_-]*token|access[\s_-]*token|new_token)"
+    r"[\s:=]+[0-9a-z._-]{16,}"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+COMPACT_CREDENTIAL_PATTERN = re.compile(
+    r"("
+    r"https?://[^@/:]+:[^@/<>]{6,}@|"
+    r"ghp_[0-9a-z]{30,}|"
+    r"github_pat_[0-9a-z_]{30,}|"
+    r"authorization:(?:token|bearer)[0-9a-z._-]{12,}|"
+    r"personalaccess(?:token)?[:=][0-9a-z._-]{16,}|"
+    r"access(?:token)?[:=][0-9a-z._-]{16,}|"
+    r"new_token[:=][0-9a-z._-]{16,}"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+
+def credential_exposed(text: str) -> bool:
+    """Detect visible secrets without joining unrelated OCR lines.
+
+    Horizontal spacing is ignored because OCR often inserts spaces around URL
+    punctuation. Line boundaries remain significant so a normal URL on one
+    line cannot combine with a later ``student@ubuntu`` prompt and look like a
+    password-bearing URL.
+    """
+
+    normalized = unicodedata.normalize("NFKC", text)
+    for line in normalized.splitlines():
+        if RAW_CREDENTIAL_PATTERN.search(line):
+            return True
+        compact_line = re.sub(r"[\t \f\v]+", "", line)
+        if COMPACT_CREDENTIAL_PATTERN.search(compact_line):
+            return True
+    return False
+
+
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == "credential":
+        text = Path(sys.argv[2]).read_text(encoding="utf-8", errors="replace")
+        return 0 if credential_exposed(text) else 1
+
     if len(sys.argv) != 4 or sys.argv[1] not in {"username", "prompt"}:
         print(
-            "Usage: ocr_evidence.py {username|prompt} EXPECTED_USERNAME OCR_TEXT_FILE",
+            "Usage: ocr_evidence.py {username|prompt} EXPECTED_USERNAME OCR_TEXT_FILE\n"
+            "       ocr_evidence.py credential OCR_TEXT_FILE",
             file=sys.stderr,
         )
         return 2

@@ -9,7 +9,11 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
-from scripts.ocr_evidence import prompt_matches, username_matches
+from scripts.ocr_evidence import (
+    credential_exposed,
+    prompt_matches,
+    username_matches,
+)
 from scripts.ocr_screenshot import extract_bright_fields
 from scripts.resolve_screenshots import resolve
 
@@ -25,6 +29,14 @@ class IdentityMatchingTests(unittest.TestCase):
     def test_unrelated_username_is_rejected(self):
         self.assertFalse(username_matches("ayeshaaafifa", "waqassaleem97"))
 
+    def test_username_can_span_adjacent_ocr_lines(self):
+        self.assertTrue(
+            username_matches(
+                "shanzaanum7-hub",
+                "https://shi\naanum7-hub.github.io",
+            )
+        )
+
     def test_prompt_can_span_adjacent_ocr_lines(self):
         self.assertTrue(
             prompt_matches("nidaawajid", "nidaawajid\n@\nubuntu:~$")
@@ -32,6 +44,26 @@ class IdentityMatchingTests(unittest.TestCase):
 
     def test_prompt_requires_the_hostname(self):
         self.assertFalse(prompt_matches("nidaawajid", "nidaawajid@debian:~$"))
+
+
+class CredentialDetectionTests(unittest.TestCase):
+    def test_normal_url_and_later_ubuntu_prompt_are_not_joined(self):
+        text = """\
+curl http://127.0.0.1:3000/
+Gitea HTTP status: 200
+student@ubuntu:~/Gitea$
+"""
+        self.assertFalse(credential_exposed(text))
+
+    def test_visible_github_token_is_rejected(self):
+        self.assertTrue(credential_exposed("token=ghp_" + "a" * 36))
+
+    def test_password_bearing_url_is_rejected(self):
+        self.assertTrue(
+            credential_exposed(
+                "git remote add gitea http://student:visible-password@127.0.0.1/repo"
+            )
+        )
 
 
 class ScreenshotResolutionTests(unittest.TestCase):

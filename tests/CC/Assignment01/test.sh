@@ -131,10 +131,10 @@ task1_gitea_running.png|ubuntu|(docker|dacker)[[:space:]]+compose[[:space:]]+ps;
 task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories);;assignment[[:space:]_@-]*0?[1li];;readme;;(public|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|registration|roll[[:space:]]*(number|no))
 task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+gitea[[:space:]]+main;;(gitea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
 task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(github|github[.]com);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
-task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea.*(127[.]0[.]0[.]1|localhost|:[[:space:]]*3000);;github.*github[.]com;;fetch;;push
+task2_remotes.png|ubuntu|git[[:space:]]+remote[[:space:]]+-v;;gitea.*(127[.][0o@][.][0o@][.]1|localhost|:[[:space:]]*3[0o6][0o@][0o@]);;github.*github[.]com;;fetch;;push
 task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;github([.]com)?;;public;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|registration|roll[[:space:]]*(number|no))
 task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]fs[[:space:]]+install|git[[:space:]]+[li1]fs[[:space:]]+initialized|[li1]fs[[:space:]]+initialized);;(git[[:space:]]+[li1]fs[[:space:]]+version|git-[li1]fs/[0-9]);;git[[:space:]]+[li1]fs[[:space:]]+track;;gitattributes;;[.]bin
-task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]fs[[:space:]]+ls-files([[:space:]]+--size)?;;[.]bin
+task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]fs[[:space:]]+[li1]s-files([[:space:]]+--size)?;;[.]bin
 task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+-u)?[[:space:]]+(github|https?[^[:space:]]*github[.]com)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]fs[[:space:]]+objects|[li1]fs[[:space:]]+objects);;(100%|3[[:space:]]*/[[:space:]]*3);;(github|github[.]com)
 task4_pages_repository.png|username|github[.]io;;index[.]html;;styles[.]css;;public
 task4_pages_deployment.png|username|github[[:space:]]+pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;github[.]io
@@ -379,14 +379,11 @@ PY
     continue
   fi
 
-  # Reject exposed credentials and private-key bodies. A redacted value is
-  # acceptable; a visible PAT, GitHub token, AWS key, password embedded in a
-  # URL, Authorization token, or PEM private key is not. Tesseract sometimes
-  # inserts spaces around URL punctuation, so also inspect whitespace-normalized
-  # OCR text.
-  compact_ocr_text="$(printf '%s' "$ocr_text" | tr -d '[:space:]')"
-  if grep -Eqi -- '(begin.*private[[:space:]]+key|(akia|asia)[0-9a-z]{16}|ghp_[0-9a-z]{30,}|github_pat_[0-9a-z_]{30,}|aws_secret_access_key[[:space:]]*=[[:space:]]*[0-9a-z/+=]{20,}|https?://[^[:space:]@/:]+:[^[:space:]@/<>]{6,}@|authorization:[[:space:]]*(token|bearer)[[:space:]]+[0-9a-z._-]{12,}|(personal[[:space:]_-]*access[[:space:]_-]*token|access[[:space:]_-]*token|new_token)[[:space:]:=]+[0-9a-z._-]{16,})' <<<"$ocr_text" || \
-     grep -Eqi -- '(https?://[^@/:]+:[^@/<>]{6,}@|ghp_[0-9a-z]{30,}|github_pat_[0-9a-z_]{30,}|authorization:(token|bearer)[0-9a-z._-]{12,}|personalaccess(token)?[:=][0-9a-z._-]{16,}|access(token)?[:=][0-9a-z._-]{16,}|new_token[:=][0-9a-z._-]{16,})' <<<"$compact_ocr_text"; then
+  # Reject exposed credentials and private-key bodies. The helper ignores
+  # harmless horizontal OCR spacing but deliberately preserves line boundaries;
+  # otherwise a normal URL and a later user@ubuntu prompt can form a false
+  # password-bearing URL when concatenated.
+  if python3 "$grader_root/scripts/ocr_evidence.py" credential "$ocr_file"; then
     feedback+=("$filename: exposed credential, token, password, or private-key material is visible (0)")
     continue
   fi
@@ -422,7 +419,9 @@ PY
         -e 's/[[:space:]]*[.][[:space:]]*/./g' \
         -e 's/[[:space:]]*@[[:space:]]*/@/g' \
         -e 's#[[:space:]]*/[[:space:]]*#/#g' \
-        -e 's/[[:space:]]*:[[:space:]]*/:/g'
+        -e 's/[[:space:]]*:[[:space:]]*/:/g' |
+      tr '\r\n\t' '   ' |
+      tr -s ' '
   )"
 
   evidence_total=0
