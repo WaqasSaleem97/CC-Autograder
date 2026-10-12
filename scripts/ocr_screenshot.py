@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Run resilient OCR for screenshots used by the grading scripts.
+"""Run dimension-independent adaptive OCR for grading screenshots.
 
-The normal OCR passes handle browser pages and terminals.  A final pass extracts
-bright input fields, which is important for Ubuntu Server's dark installer UI:
-Tesseract often reads the labels but otherwise misses the text inside the white
-fields.
+Every image receives complementary sparse-text and block-text passes. Small,
+narrow, dark, or weakly recognised images receive additional enhanced passes.
+No image earns or loses marks because of its pixel dimensions: small images are
+upscaled for OCR, while the original evidence remains unchanged.
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
+import math
+import re
 from pathlib import Path
 
 from PIL import Image, ImageOps, ImageStat
@@ -25,6 +27,8 @@ def run_tesseract(image: Path, page_segmentation_mode: int) -> str:
             "stdout",
             "--psm",
             str(page_segmentation_mode),
+            "--dpi",
+            "300",
         ],
         check=False,
         stdout=subprocess.PIPE,
@@ -32,6 +36,46 @@ def run_tesseract(image: Path, page_segmentation_mode: int) -> str:
         text=True,
     )
     return result.stdout
+
+
+def image_scale_factor(size: tuple[int, int]) -> int:
+    """Choose a safe OCR-only upscale factor without rejecting any dimensions."""
+
+    width, height = size
+    if width <= 0 or height <= 0:
+        return 1
+
+    shortest = min(width, height)
+    longest = max(width, height)
+    factor = max(
+        1,
+        math.ceil(240 / shortest),
+        math.ceil(1600 / longest),
+    )
+    factor = min(6, factor)
+
+    # Avoid creating an unnecessarily large working copy. This limits only the
+    # temporary OCR resize; it does not reject or penalise the submitted image.
+    while factor > 1 and width * height * factor * factor > 12_000_000:
+        factor -= 1
+    return factor
+
+
+def needs_enhanced_passes(
+    source: Image.Image, grayscale_mean: float, fast_text: str
+) -> bool:
+    """Select extra OCR passes for layouts that commonly confuse Tesseract."""
+
+    width, height = source.size
+    shortest = max(1, min(width, height))
+    longest = max(width, height)
+    alphanumeric_count = len(re.findall(r"[a-z0-9]", fast_text.casefold()))
+    return (
+        image_scale_factor(source.size) > 1
+        or grayscale_mean < 150
+        or longest / shortest >= 3.5
+        or alphanumeric_count < 40
+    )
 
 
 def _runs(values: list[bool]) -> list[tuple[int, int]]:
@@ -70,14 +114,17 @@ def extract_bright_fields(source: Image.Image) -> list[Image.Image]:
 
     gray = source.convert("L")
     width, height = gray.size
-    pixels = gray.load()
     bright_threshold = 190
+    mask = gray.point(lambda value: 255 if value >= bright_threshold else 0)
 
-    bright_rows: list[bool] = []
-    minimum_bright_pixels = max(40, int(width * 0.25))
-    for y in range(height):
-        count = sum(pixels[x, y] >= bright_threshold for x in range(width))
-        bright_rows.append(count >= minimum_bright_pixels)
+    # BOX projections run inside Pillow instead of scanning every source pixel
+    # in Python, which keeps full-class grading practical for large images.
+    row_projection = mask.resize((1, height), Image.Resampling.BOX)
+    minimum_row_ratio = max(40 / max(1, width), 0.25)
+    bright_rows = [
+        value >= round(255 * minimum_row_ratio)
+        for value in row_projection.tobytes()
+    ]
 
     fields: list[Image.Image] = []
     maximum_field_height = max(20, int(height * 0.20))
@@ -86,13 +133,12 @@ def extract_bright_fields(source: Image.Image) -> list[Image.Image]:
         if field_height < 5 or field_height > maximum_field_height:
             continue
 
-        bright_columns: list[bool] = []
-        required = max(1, int(field_height * 0.45))
-        for x in range(width):
-            count = sum(
-                pixels[x, y] >= bright_threshold for y in range(top, bottom)
-            )
-            bright_columns.append(count >= required)
+        field_mask = mask.crop((0, top, width, bottom))
+        column_projection = field_mask.resize((width, 1), Image.Resampling.BOX)
+        bright_columns = [
+            value >= round(255 * 0.45)
+            for value in column_projection.tobytes()
+        ]
 
         segment = _longest_segment_with_small_gaps(
             bright_columns,
@@ -150,8 +196,10 @@ def ocr_screenshot(source_path: Path) -> str:
 
     with tempfile.TemporaryDirectory(prefix="grader-ocr-") as temporary:
         directory = Path(temporary)
-        gray = ImageOps.autocontrast(source.convert("L"), cutoff=1)
-        scale = 2 if max(gray.size) < 2400 else 1
+        original_gray = source.convert("L")
+        grayscale_mean = ImageStat.Stat(original_gray).mean[0]
+        gray = ImageOps.autocontrast(original_gray, cutoff=1)
+        scale = image_scale_factor(gray.size)
         if scale > 1:
             gray = gray.resize(
                 (gray.width * scale, gray.height * scale),
@@ -160,26 +208,37 @@ def ocr_screenshot(source_path: Path) -> str:
 
         gray_path = directory / "gray.png"
         binary_path = directory / "binary.png"
-        gray.save(gray_path)
+        ImageOps.expand(gray, border=12, fill="white").save(gray_path)
 
-        binary = ImageOps.invert(gray) if ImageStat.Stat(gray).mean[0] < 127 else gray
-        binary.point(lambda value: 255 if value > 100 else 0).save(binary_path)
+        binary = ImageOps.invert(gray) if grayscale_mean < 127 else gray
+        binary = binary.point(lambda value: 255 if value > 100 else 0)
+        ImageOps.expand(binary, border=12, fill="white").save(binary_path)
 
-        output = [
-            run_tesseract(source_path, 11),
-            run_tesseract(gray_path, 6),
-            run_tesseract(gray_path, 11),
-            run_tesseract(binary_path, 12),
-        ]
+        fast_text = run_tesseract(source_path, 11)
+        output = [fast_text, run_tesseract(gray_path, 6)]
 
-        sheet = build_field_sheet(extract_bright_fields(source))
-        if sheet is not None:
-            field_path = directory / "fields.png"
-            sheet.save(field_path)
-            output.append(run_tesseract(field_path, 6))
-            output.append(run_tesseract(field_path, 11))
+        if needs_enhanced_passes(source, grayscale_mean, fast_text):
+            output.append(run_tesseract(gray_path, 11))
+            output.append(run_tesseract(binary_path, 12))
 
-    return "\n".join(output)
+        # Bright installer fields matter primarily on dark setup screens. Skip
+        # this specialised work for normal browser pages and light terminals.
+        if grayscale_mean < 150:
+            sheet = build_field_sheet(extract_bright_fields(source))
+            if sheet is not None:
+                field_path = directory / "fields.png"
+                sheet.save(field_path)
+                output.append(run_tesseract(field_path, 6))
+                output.append(run_tesseract(field_path, 11))
+
+    unique_output: list[str] = []
+    seen: set[str] = set()
+    for text in output:
+        normalized = " ".join(text.split()).casefold()
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            unique_output.append(text)
+    return "\n".join(unique_output)
 
 
 def main() -> int:

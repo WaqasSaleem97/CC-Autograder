@@ -108,7 +108,7 @@ permissions:
 jobs:
   select-students:
     name: Select approved students
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -140,7 +140,7 @@ jobs:
   grade:
     name: Grade selected students without Firebase credentials
     needs: select-students
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
       OCR_JOBS: 4
@@ -158,6 +158,10 @@ jobs:
           sudo apt-get install -y \
             tesseract-ocr \
             python3-pil
+          tesseract --version | head -n 1
+          python3 --version
+      - name: Validate grader and shared OCR usage
+        run: npm run check
       - name: Select trusted test script automatically
         env:
           COURSE_ID: ${{ inputs.course_id }}
@@ -253,7 +257,7 @@ jobs:
     name: Publish trusted grading results
     needs: grade
     if: ${{ inputs.update_firestore || inputs.send_email_results }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

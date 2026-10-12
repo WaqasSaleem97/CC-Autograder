@@ -63,6 +63,7 @@ fi
 
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 if [[ ! -d "$screenshots_dir" ]]; then
   json_error "Required directory is missing: Labs/Lab13/screenshots"
@@ -257,12 +258,12 @@ printf '%s\n' "${criteria[@]}" |
     bash -c '
       screenshots_dir="$1"
       ocr_dir="$2"
-      canonical="$3"
-      resolved="$4"
+      helper="$3"
+      canonical="$4"
+      resolved="$5"
       source_image="$screenshots_dir/$resolved"
-      output_base="$ocr_dir/${canonical%.*}"
-      tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
-    ' _ "$screenshots_dir" "$ocr_dir"
+      python3 "$helper" "$source_image" "$ocr_dir/${canonical%.*}.txt"
+    ' _ "$screenshots_dir" "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
 
 # Build one exact-duplicate index for screenshots representing the same task
 # across all students selected in this workflow. Every matching copy gets zero.

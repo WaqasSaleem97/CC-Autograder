@@ -4,6 +4,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from PIL import Image, ImageDraw
 
@@ -14,7 +15,12 @@ from scripts.ocr_evidence import (
     prompt_matches,
     username_matches,
 )
-from scripts.ocr_screenshot import extract_bright_fields
+from scripts.ocr_screenshot import (
+    extract_bright_fields,
+    image_scale_factor,
+    needs_enhanced_passes,
+    ocr_screenshot,
+)
 from scripts.resolve_screenshots import resolve
 
 
@@ -128,6 +134,33 @@ class BrightFieldTests(unittest.TestCase):
         fields = extract_bright_fields(image)
         self.assertTrue(fields)
         self.assertGreater(fields[0].width, fields[0].height * 4)
+
+
+class AdaptiveOcrTests(unittest.TestCase):
+    def test_small_and_narrow_images_are_upscaled_not_rejected(self):
+        self.assertGreater(image_scale_factor((792, 94)), 1)
+        self.assertGreater(image_scale_factor((80, 30)), 1)
+
+    def test_large_image_does_not_need_an_ocr_upscale(self):
+        self.assertEqual(image_scale_factor((1920, 1080)), 1)
+
+    def test_dark_or_small_images_receive_enhanced_passes(self):
+        dark = Image.new("RGB", (1920, 1080), "black")
+        small = Image.new("RGB", (500, 100), "white")
+        strong_text = "terminal evidence " * 10
+        self.assertTrue(needs_enhanced_passes(dark, 0, strong_text))
+        self.assertTrue(needs_enhanced_passes(small, 255, strong_text))
+
+    @mock.patch(
+        "scripts.ocr_screenshot.run_tesseract",
+        return_value="valid terminal evidence with enough recognised characters",
+    )
+    def test_tiny_decodable_image_is_processed(self, mocked_tesseract):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = pathlib.Path(temporary) / "tiny.png"
+            Image.new("RGB", (32, 12), "white").save(path)
+            self.assertIn("valid terminal evidence", ocr_screenshot(path))
+            self.assertGreaterEqual(mocked_tesseract.call_count, 2)
 
 
 if __name__ == "__main__":

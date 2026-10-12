@@ -66,6 +66,7 @@ fi
 
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 if [[ ! -d "$screenshots_dir" ]]; then
   json_error "Required directory is missing: Assignments/Assignment02/screenshots"
@@ -246,8 +247,9 @@ for rule in "${all_criteria[@]}"; do
   fi
 done
 
-# OCR screenshots concurrently using all available logical CPUs, capped at 8.
-# OCR_JOBS may be used to request fewer workers.
+# OCR screenshots concurrently through the shared adaptive helper. Images of
+# any dimensions are accepted; small or difficult screenshots are enhanced for
+# OCR rather than rejected.
 available_cpus="$(nproc 2>/dev/null || true)"
 if [[ ! "$available_cpus" =~ ^[1-9][0-9]*$ ]]; then
   available_cpus=2
@@ -265,6 +267,7 @@ if (( ocr_jobs > 8 )); then
 fi
 
 export ASSIGNMENT02_OCR_DIR="$ocr_dir"
+export ASSIGNMENT02_OCR_HELPER="$grader_root/scripts/ocr_screenshot.py"
 while IFS=$'\t' read -r filename image; do
   printf '%s\0%s\0' "$filename" "$image"
 done < "$resolved_index" |
@@ -272,10 +275,10 @@ done < "$resolved_index" |
     bash -c '
       filename="$1"
       source_image="$2"
-      output_base="$ASSIGNMENT02_OCR_DIR/${filename%.*}"
-      tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
+      python3 "$ASSIGNMENT02_OCR_HELPER" \
+        "$source_image" "$ASSIGNMENT02_OCR_DIR/${filename%.*}.txt"
     ' _
-unset ASSIGNMENT02_OCR_DIR
+unset ASSIGNMENT02_OCR_DIR ASSIGNMENT02_OCR_HELPER
 
 # Build an exact-duplicate index for the same normalized screenshot filename
 # across all selected students. Both matching students receive zero for that

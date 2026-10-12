@@ -169,10 +169,9 @@ if [[ -d "$screenshots_dir" ]]; then
   )
 fi
 
-# OCR screenshots concurrently. Assignment 01 evidence is limited to normal
-# browser and terminal screenshots, so one PSM 11 pass keeps a full-class run
-# fast. The shared fuzzy matcher handles the spacing and character substitutions
-# Tesseract commonly introduces in usernames.
+# OCR screenshots concurrently through the shared adaptive helper. It upscales
+# small images and adds enhanced passes for dark, narrow, or weak OCR without
+# imposing a minimum or required image dimension.
 ocr_dir="$(mktemp -d "/tmp/assignment01-ocr-${normalized_username}.XXXXXX")"
 cleanup() {
   rm -rf -- "$ocr_dir"
@@ -204,11 +203,11 @@ done |
   xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
       output_directory="$1"
-      filename="$2"
-      source_image="$3"
-      output_base="$output_directory/${filename%.*}"
-      tesseract "$source_image" "$output_base" --psm 11 2>/dev/null || true
-    ' _ "$ocr_dir"
+      helper="$2"
+      filename="$3"
+      source_image="$4"
+      python3 "$helper" "$source_image" "$output_directory/${filename%.*}.txt"
+    ' _ "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
 
 # Build one exact-duplicate index for screenshots with the same filename across
 # every student selected in this workflow. Both students receive zero for a
