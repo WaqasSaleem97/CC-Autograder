@@ -4,7 +4,7 @@ set -u
 # Grade Assignment 01 required files and screenshot evidence.
 #
 # Usage:
-#   test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME]
+#   test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME] [REGISTRATION_NUMBER]
 #
 # GitHub Actions example:
 #   tests/CC/Assignment01/test.sh \
@@ -15,7 +15,8 @@ set -u
 #   bash tests/CC/Assignment01/test.sh \
 #     /path/to/CC/Assignments/Assignment01 \
 #     10 \
-#     waqassaleem97
+#     waqassaleem97 \
+#     2024-BSE-01
 
 json_error() {
   node -e '
@@ -28,14 +29,14 @@ json_error() {
 }
 
 if [[ $# -lt 2 ]]; then
-  printf '%s\n' '{"score":0,"feedback":"Usage: test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME]"}'
+  printf '%s\n' '{"score":0,"feedback":"Usage: test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME] [REGISTRATION_NUMBER]"}'
   exit 0
 fi
 
 submission_input="$1"
 total_marks="$2"
 
-for command in tesseract python3 git node sha256sum realpath xargs find grep sed awk tr cut sort nproc; do
+for command in tesseract python3 git node sha256sum realpath env xargs find grep sed awk tr cut sort nproc pdfinfo pdftotext pdfimages; do
   command -v "$command" >/dev/null 2>&1 || {
     if command -v node >/dev/null 2>&1; then
       json_error "Required grading tool is missing: $command"
@@ -67,6 +68,7 @@ fi
 submission_dir="$(realpath "$submission_input")"
 screenshots_dir="$submission_dir/screenshots"
 grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+registration_number="${4:-${STUDENT_REGISTRATION_NUMBER:-}}"
 
 # The workflow normalizes Screenshots/screenshots before grading. Keep the
 # standalone grader equally forgiving when it is run directly.
@@ -127,21 +129,51 @@ normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:
 # the complete screenshot mark because one word was misread. Alternatives
 # inside one expression use normal extended-regex parentheses and |.
 readarray -t criteria <<'EOF'
-task1_gitea_running.png|ubuntu|(docker|dacker)[[:space:]]+compose[[:space:]]+ps;;gitea;;(postgres|gitea_db|gitea[[:space:]_-]*db|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gitea[[:space:]]+http[[:space:]]+status|http[[:space:]]+status).*200
-task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories|packages.*releases.*wiki.*activity);;assignment[[:space:]_@-]*0?[1li];;readme;;(pub[li1]?ic|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task1_gitea_running.png|ubuntu|((docker|dacker)[[:space:]]+compose[[:space:]]+ps|[dj]o[ck][a-z|]*[^[:alnum:]]+(compose|c[oa][mn][a-z]{2,5}|car[a-z]{2,5}));;gite[as];;(postgres|gitea_db|[gct]ite[as][[:space:]_.-]+d[bsoc]|g[eo]stg[er][ea][es]|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gite[as].{0,24}(status|statue|gangs)[^[:alnum:]]*2[0-9oe8]{2}|http[[:space:]]+status.*2[0-9oe8]{2}|http/[12]([.][0-9]+)?[[:space:]]+2[0-9]{2}([[:space:]]+ok)?|(127[.]0[.]0[.]1|localhost):3000.*[[:space:]]2[0-9oe8]{2}([[:space:]]|$))
+task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories|packages.*releases.*wiki.*activity);;assignment[[:space:]_@-]*[0o]?[1li];;readme;;(assignment[[:space:]_@-]*[0o]?[1li].{0,24}pub[li1]?ic|pub[li1]?ic.{0,24}assignment[[:space:]_@-]*[0o]?[1li]|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
 task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+[gq]?[i1l]tea[[:space:]]+main;;([gq]?[i1l]tea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
 task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+([gj][i1l]t[hnu]u[b8]|https?[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m)[^[:space:]]*[[:space:]]+main;;[gj][i1l]t[hnu]u[b8]([.]c[oa]m)?;;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
 task2_remotes.png|ubuntu|git[[:space:]]+remote([[:space:]]+-v)?;;gitea.*(127[.][0o@][.][0o@]([.][li1])?|localhost|:[[:space:]]*[23]?[0o6][0o@][0o@]?);;[gj][i1l]t[hnu]u[b8].*[gj][i1l]t[hnu]u[b8][.]c[oa]m;;fetch;;push
-task2_github_repository.png|username|assignment[[:space:]_@-]*0?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;pub[li1]?ic;;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task2_github_repository.png|username|assignment[[:space:]_@-]*[0o]?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;(assignment[[:space:]_@-]*[0o]?[1li].{0,24}pub[li1]?ic|pub[li1]?ic.{0,24}assignment[[:space:]_@-]*[0o]?[1li]);;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
 task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]{0,2}fs[[:space:]]+install|git[[:space:]]+[li1]{0,2}fs[[:space:]]+initialized|[li1]{0,2}fs[[:space:]]+initialized);;(git[[:space:]]+[li1]{0,2}fs[[:space:]]+version|git-[li1]{0,2}fs/[0-9]);;git[[:space:]]+[li1]{0,2}fs[[:space:]]+track;;gitattributes;;[.]bin
 task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]{0,2}fs[[:space:]]+[li1]?s-files([[:space:]]+--size)?;;[.]bin
 task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+([gj][i1l]t[hnu]u[b8]|https?[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]{0,2}fs[[:space:]]+objects?|[li1]{0,2}fs[[:space:]]+objects?);;(100%|3[[:space:]]*/[[:space:]]*3);;[gj][i1l]t[hnu]u[b8]([.]c[oa]m)?
 task4_pages_repository.png|username|[gj][i1l]t[hnu]u[b8][.]io;;index[.]?htm[li1t];;styles[.]css;;pub[li1]?ic
 task4_pages_deployment.png|username|github[[:space:]_-]*pages;;(deployed|deployment|published|active|success|your[[:space:]]+site[[:space:]]+is[[:space:]]+live);;[gj][i1l]t[hnu]u[b8][.]io
-task4_portfolio_live.png|username|[gj][i1l]t[hnu]u[b8][.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+me|education|skills|projects)
+task4_portfolio_live.png|username|[gj][i1l]t[hnu]u[b8][.]io;;(portfolio|curriculum[[:space:]]+vitae|cv|about[[:space:]]+(me|hie)|education|ski[li1]t?s|projects|software[[:space:]]+engineering.*cloud[[:space:]]+computing)
 EOF
 
 required=${#criteria[@]}
+
+declare -A task_anchors=(
+  [task1_gitea_running.png]="((docker|dacker)[[:space:]]+compose[[:space:]]+ps|[dj]o[ck][a-z|]*[^[:alnum:]]+(compose|c[oa][mn][a-z]{2,5}|car[a-z]{2,5})|gite[as].{0,24}(status|statue|gangs)[^[:alnum:]]*2[0-9oe8]{2}|http/[12]([.][0-9]+)?[[:space:]]+2[0-9]{2}|[gct]ite[as][[:space:]_.-]+d[bsoc].*(up|running|healthy)|postgres.*(up|running|healthy))"
+  [task1_gitea_repository.png]="((gitea|:[[:space:]]*3000).*(assignment[[:space:]_@-]*[0o]?[1li])|(assignment[[:space:]_@-]*[0o]?[1li]).*(gitea|:[[:space:]]*3000)|(repositories|packages|public[[:space:]]+activity).*(assignment[[:space:]_@-]*[0o]?[1li])|(assignment[[:space:]_@-]*[0o]?[1li]).*(repositories|packages|public[[:space:]]+activity))"
+  [task1_gitea_push.png]="(git[[:space:]]+push.*[gq]?[i1l]tea|[gq]?[i1l]tea/main|127[.]0[.]0[.]1:3000.*assignment[[:space:]_@-]*[0o]?[1li])"
+  [task2_github_push.png]="(git[[:space:]]+push.*([gj][i1l]t[hnu]u[b8]|github[.]com)|github/main|github[.]com.*assignment[[:space:]_@-]*[0o]?[1li])"
+  [task2_remotes.png]="(git[[:space:]]+remote([[:space:]]+-v)?|gitea.*github|github.*gitea)"
+  [task2_github_repository.png]="(github[.]com.*assignment[[:space:]_@-]*[0o]?[1li]|assignment[[:space:]_@-]*[0o]?[1li].*(code|issues|pull[[:space:]]+requests|actions|github))"
+  [task3_lfs_setup.png]="(git[[:space:]]+[li1]{0,2}fs[[:space:]]+(install|version|track)|gitattributes.*[.]bin)"
+  [task3_lfs_files.png]="(git[[:space:]]+[li1]{0,2}fs[[:space:]]+[li1]?s-files|[a-f0-9]{6,}.*[.]bin)"
+  [task3_lfs_push.png]="(uploading[[:space:]]+[li1]{0,2}fs[[:space:]]+objects?|[li1]{0,2}fs[[:space:]]+objects?|git[[:space:]]+push.*([gj][i1l]t[hnu]u[b8]|github[.]com)|to[[:space:]]+https?://[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m.*main[[:space:]]*[-=]+>[[:space:]]*main)"
+  [task4_pages_repository.png]="([gj][i1l]t[hnu]u[b8][.]io|[gj][i1l]t[hnu]u[b8][.]io.*(index|styles|pub[li1]?ic)|(index|styles).*[gj][i1l]t[hnu]u[b8][.]io)"
+  [task4_pages_deployment.png]="(github[[:space:]_-]*pages|([gj][i1l]t[hnu]u[b8][.]io).*(deployed|published|active|live|success)|(deployed|published|active|live|success).*[gj][i1l]t[hnu]u[b8][.]io)"
+  [task4_portfolio_live.png]="([gj][i1l]t[hnu]u[b8][.]io.*(portfolio|curriculum[[:space:]]+vitae|cv|about|education|ski[li1]t?s|projects)|(portfolio|curriculum[[:space:]]+vitae|about[[:space:]]+(me|hie)|education|ski[li1]t?s|projects).*[gj][i1l]t[hnu]u[b8][.]io|about[[:space:]]+(me|hie).*education|education.*ski[li1]t?s|ski[li1]t?s.*projects|software[[:space:]]+engineering.*cloud[[:space:]]+computing)"
+)
+
+declare -A evidence_labels=(
+  [task1_gitea_running.png]="docker compose ps command;;Gitea container/service;;PostgreSQL container/service;;running status;;successful HTTP 200 response"
+  [task1_gitea_repository.png]="Gitea repository page;;Assignment01 repository name;;rendered README;;public status or student registration"
+  [task1_gitea_push.png]="git push to gitea main;;Gitea remote or port 3000;;successful push result"
+  [task2_github_push.png]="git push to github main;;GitHub destination;;successful push result"
+  [task2_remotes.png]="git remote -v command;;Gitea fetch/push URL;;GitHub fetch/push URL;;fetch entries;;push entries"
+  [task2_github_repository.png]="Assignment01 repository name;;rendered README;;GitHub repository page;;public repository status;;registration details"
+  [task3_lfs_setup.png]="Git LFS initialization;;Git LFS version;;git lfs track command;;.gitattributes output;;*.bin tracking rule"
+  [task3_lfs_files.png]="git lfs ls-files --size command;;.bin entries"
+  [task3_lfs_push.png]="git push to GitHub;;LFS object upload;;100% or 3/3 completion;;GitHub destination"
+  [task4_pages_repository.png]="<username>.github.io repository;;index.html;;styles.css;;public repository status"
+  [task4_pages_deployment.png]="GitHub Pages settings;;successful deployment status;;github.io URL"
+  [task4_portfolio_live.png]="live github.io URL;;required portfolio content"
+)
 
 # Required deliverables account for 10% of the score. Filenames are matched
 # case-insensitively, but each file must be a valid non-empty file of its type.
@@ -200,7 +232,7 @@ for rule in "${criteria[@]}"; do
   image="${resolved_screenshots[$filename]:-}"
   [[ -f "$image" ]] && printf '%s\0%s\0' "$filename" "$image"
 done |
-  xargs -0 -r -P "$ocr_jobs" -n 2 \
+  env -u GH_TOKEN xargs -0 -r -P "$ocr_jobs" -n 2 \
     bash -c '
       output_directory="$1"
       helper="$2"
@@ -208,6 +240,169 @@ done |
       source_image="$4"
       python3 "$helper" "$source_image" "$output_directory/${filename%.*}.txt"
     ' _ "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
+
+# A terminal prompt elsewhere in the same submission can corroborate the
+# prompt-only identity portion of another low-resolution terminal screenshot.
+# Browser screenshots must still show the student's own username or URL.
+submission_prompt_seen=0
+read -r submission_prompt_seen < <(
+  python3 - "$grader_root" "$ocr_dir" "$normalized_username" <<'PY'
+import pathlib
+import sys
+
+grader_root, ocr_directory, username = sys.argv[1:]
+sys.path.insert(0, grader_root)
+from scripts.ocr_evidence import prompt_matches
+
+text = "\n".join(
+    path.read_text(encoding="utf-8", errors="replace")
+    for path in pathlib.Path(ocr_directory).glob("*.txt")
+)
+print(int(prompt_matches(username, text)))
+PY
+) || true
+
+# Positive API results may repair an OCR-missed indicator only after the
+# submitted screenshot itself passes its task-specific anchor. They never
+# replace a missing screenshot or local terminal evidence, and API errors never
+# lower marks.
+github_api_file="$ocr_dir/github-api.tsv"
+: > "$github_api_file"
+if [[ -n "${GH_TOKEN:-}" ]]; then
+  python3 - "$normalized_username" "$registration_number" "$github_api_file" <<'PY'
+import base64
+from concurrent.futures import ThreadPoolExecutor
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+username, registration, output = sys.argv[1:]
+token = os.environ.get("GH_TOKEN", "").strip()
+api = "https://api.github.com"
+owner = urllib.parse.quote(username, safe="")
+headers = {
+    "Accept": "application/vnd.github+json",
+    "Authorization": f"Bearer {token}",
+    "User-Agent": "CC-Autograder-Assignment01",
+    "X-GitHub-Api-Version": "2022-11-28",
+}
+
+def request_json(url):
+    try:
+        request = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.load(response), "ok"
+    except urllib.error.HTTPError as error:
+        return None, "missing" if error.code == 404 else "unknown"
+    except (OSError, ValueError):
+        return None, "unknown"
+
+def public_html(url):
+    try:
+        request = urllib.request.Request(
+            url, headers={"User-Agent": "CC-Autograder-Assignment01"}
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            content_type = response.headers.get("content-type", "")
+            body = response.read(1_000_000).decode("utf-8", errors="replace")
+            return response.status < 400 and "html" in content_type.casefold(), body
+    except (OSError, urllib.error.HTTPError):
+        return False, ""
+
+assignment_url = f"{api}/repos/{owner}/Assignment01"
+pages_name = urllib.parse.quote(f"{username}.github.io", safe="")
+pages_url = f"{api}/repos/{owner}/{pages_name}"
+live_url = f"https://{username}.github.io/"
+
+with ThreadPoolExecutor(max_workers=3) as executor:
+    assignment_future = executor.submit(request_json, assignment_url)
+    pages_repo_future = executor.submit(request_json, pages_url)
+    live_future = executor.submit(public_html, live_url)
+    assignment, assignment_status = assignment_future.result()
+    pages_repo, pages_repo_status = pages_repo_future.result()
+    live, html = live_future.result()
+
+flags = {"assignment_repo": assignment_status == "ok", "pages_repo": pages_repo_status == "ok"}
+if assignment_status == "ok":
+    flags["assignment_public"] = not bool(assignment.get("private", True))
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        contents_future = executor.submit(request_json, f"{assignment_url}/contents")
+        readme_future = executor.submit(request_json, f"{assignment_url}/readme")
+        contents, contents_status = contents_future.result()
+        readme, readme_status = readme_future.result()
+    names = {
+        str(item.get("name", "")).casefold()
+        for item in contents or [] if isinstance(item, dict)
+    }
+    flags["assignment_readme"] = contents_status == "ok" and "readme.md" in names
+    if readme_status == "ok" and registration:
+        try:
+            readme_text = base64.b64decode(
+                str(readme.get("content", "")).replace("\n", "")
+            ).decode("utf-8", errors="replace")
+        except (ValueError, TypeError):
+            readme_text = ""
+        wanted = re.sub(r"[^a-z0-9]", "", registration.casefold())
+        seen = re.sub(r"[^a-z0-9]", "", readme_text.casefold())
+        flags["assignment_registration"] = bool(wanted and wanted in seen)
+
+if pages_repo_status == "ok":
+    flags["pages_public"] = not bool(pages_repo.get("private", True))
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        contents_future = executor.submit(request_json, f"{pages_url}/contents")
+        pages_future = executor.submit(request_json, f"{pages_url}/pages")
+        contents, contents_status = contents_future.result()
+        pages, pages_status = pages_future.result()
+    names = {
+        str(item.get("name", "")).casefold()
+        for item in contents or [] if isinstance(item, dict)
+    }
+    flags["pages_index"] = contents_status == "ok" and "index.html" in names
+    flags["pages_styles"] = contents_status == "ok" and "styles.css" in names
+    flags["pages_deployed"] = pages_status == "ok" and str(
+        pages.get("status", "")
+    ).casefold() == "built"
+
+flags["pages_live"] = live
+visible_html = re.sub(r"<[^>]+>", " ", html)
+flags["portfolio_content"] = live and bool(re.search(
+    r"portfolio|curriculum\s+vitae|\bcv\b|about\s+me|education|skills|projects",
+    visible_html,
+    flags=re.IGNORECASE,
+))
+
+with open(output, "w", encoding="utf-8") as destination:
+    for key, value in sorted(flags.items()):
+        destination.write(f"{key}\t{1 if value else 0}\n")
+PY
+fi
+unset GH_TOKEN
+
+api_flag() {
+  awk -F '\t' -v key="$1" '$1 == key {print $2; exit}' "$github_api_file"
+}
+
+api_indicator_verified() {
+  local filename="$1" indicator_index="$2" key=""
+  case "$filename:$indicator_index" in
+    task2_github_repository.png:1|task2_github_repository.png:3) key="assignment_repo" ;;
+    task2_github_repository.png:2) key="assignment_readme" ;;
+    task2_github_repository.png:4) key="assignment_public" ;;
+    task2_github_repository.png:5) key="assignment_registration" ;;
+    task4_pages_repository.png:1) key="pages_repo" ;;
+    task4_pages_repository.png:2) key="pages_index" ;;
+    task4_pages_repository.png:3) key="pages_styles" ;;
+    task4_pages_repository.png:4) key="pages_public" ;;
+    task4_pages_deployment.png:1|task4_pages_deployment.png:2) key="pages_deployed" ;;
+    task4_pages_deployment.png:3|task4_portfolio_live.png:1) key="pages_live" ;;
+    task4_portfolio_live.png:2) key="portfolio_content" ;;
+  esac
+  [[ -n "$key" && "$(api_flag "$key")" == "1" ]]
+}
 
 # Build one exact-duplicate index for screenshots with the same filename across
 # every student selected in this workflow. Both students receive zero for a
@@ -279,8 +474,11 @@ fi
 validate_artifact() {
   python3 - "$1" "$2" <<'PY' >/dev/null 2>&1
 import pathlib
+import re
+import subprocess
 import sys
 import zipfile
+from xml.etree import ElementTree
 
 path = pathlib.Path(sys.argv[1])
 kind = sys.argv[2]
@@ -288,43 +486,122 @@ if not path.is_file() or path.stat().st_size == 0:
     raise SystemExit(1)
 
 if kind == "markdown":
-    if not path.read_text(encoding="utf-8", errors="ignore").strip():
+    content = path.read_text(encoding="utf-8", errors="ignore")
+    if len(re.findall(r"[a-z0-9]", content, flags=re.IGNORECASE)) < 10:
         raise SystemExit(1)
 elif kind == "docx":
     if not zipfile.is_zipfile(path):
         raise SystemExit(1)
     with zipfile.ZipFile(path) as document:
-        if "word/document.xml" not in document.namelist():
+        names = set(document.namelist())
+        if not {"[Content_Types].xml", "word/document.xml"}.issubset(names):
+            raise SystemExit(1)
+        root = ElementTree.fromstring(document.read("word/document.xml"))
+        text = " ".join(root.itertext())
+        media = any(name.startswith("word/media/") for name in names)
+        if len(re.findall(r"[a-z0-9]", text, flags=re.IGNORECASE)) < 20 and not media:
             raise SystemExit(1)
 elif kind == "pdf":
     with path.open("rb") as document:
         if document.read(5) != b"%PDF-":
             raise SystemExit(1)
+    information = subprocess.run(
+        ["pdfinfo", str(path)], check=False, stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL, text=True,
+    )
+    pages = re.search(r"(?m)^Pages:\s*([0-9]+)\s*$", information.stdout)
+    if information.returncode != 0 or pages is None or int(pages.group(1)) < 1:
+        raise SystemExit(1)
+    extracted = subprocess.run(
+        ["pdftotext", "-layout", str(path), "-"], check=False,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    )
+    images = subprocess.run(
+        ["pdfimages", "-list", str(path)], check=False,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    )
+    readable_text = len(re.findall(r"[a-z0-9]", extracted.stdout, re.IGNORECASE)) >= 20
+    embedded_image = bool(re.search(r"(?m)^\s*[0-9]+\s+[0-9]+\s+", images.stdout))
+    if extracted.returncode != 0 or (not readable_text and not embedded_image):
+        raise SystemExit(1)
 else:
     raise SystemExit(1)
 PY
 }
 
-artifact_passed=0
-artifact_feedback=()
+artifacts_match() {
+  python3 - "$1" "$2" <<'PY' >/dev/null 2>&1
+import re
+import subprocess
+import sys
+import zipfile
+from xml.etree import ElementTree
+
+with zipfile.ZipFile(sys.argv[1]) as document:
+    root = ElementTree.fromstring(document.read("word/document.xml"))
+    docx_text = " ".join(root.itertext())
+pdf_text = subprocess.run(
+    ["pdftotext", "-layout", sys.argv[2], "-"], check=False,
+    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+).stdout
+
+def words(value):
+    return {
+        word for word in re.findall(r"[a-z0-9]{3,}", value.casefold())
+        if word not in {"the", "and", "for", "with", "from", "this", "that"}
+    }
+
+docx_words, pdf_words = words(docx_text), words(pdf_text)
+if min(len(docx_words), len(pdf_words)) < 20:
+    raise SystemExit(0)
+overlap = len(docx_words & pdf_words) / min(len(docx_words), len(pdf_words))
+raise SystemExit(0 if overlap >= 0.35 else 1)
+PY
+}
+
+declare -A artifact_paths artifact_valid artifact_reason
 for artifact_rule in "${artifact_criteria[@]}"; do
   artifact_name="${artifact_rule%%|*}"
   artifact_kind="${artifact_rule#*|}"
   artifact_path="$(find "$submission_dir" -maxdepth 1 -type f -iname "$artifact_name" -print -quit)"
 
   if [[ -z "$artifact_path" ]]; then
-    artifact_feedback+=("$artifact_name: missing required assignment file (0)")
+    artifact_valid["$artifact_name"]=false
+    artifact_reason["$artifact_name"]="missing required assignment file"
   elif ! validate_artifact "$artifact_path" "$artifact_kind"; then
-    artifact_feedback+=("$artifact_name: invalid, empty, or unreadable assignment file (0)")
+    artifact_valid["$artifact_name"]=false
+    artifact_reason["$artifact_name"]="invalid, empty, or unreadable assignment file"
   else
+    artifact_paths["$artifact_name"]="$artifact_path"
+    artifact_valid["$artifact_name"]=true
+  fi
+done
+
+docx_name="Assignment01_Solution.docx"
+pdf_name="Assignment01_Solution.pdf"
+if [[ "${artifact_valid[$docx_name]:-false}" == true && "${artifact_valid[$pdf_name]:-false}" == true ]] &&
+   ! artifacts_match "${artifact_paths[$docx_name]}" "${artifact_paths[$pdf_name]}"; then
+  artifact_valid["$pdf_name"]=false
+  artifact_reason["$pdf_name"]="readable PDF does not match the Word solution"
+fi
+
+artifact_passed=0
+artifact_feedback=()
+for artifact_rule in "${artifact_criteria[@]}"; do
+  artifact_name="${artifact_rule%%|*}"
+  if [[ "${artifact_valid[$artifact_name]:-false}" == true ]]; then
     artifact_passed=$((artifact_passed + 1))
     artifact_feedback+=("$artifact_name: passed")
+  else
+    artifact_feedback+=("$artifact_name: ${artifact_reason[$artifact_name]} (0)")
   fi
 done
 
 full_credit=0
 partial_credit=0
 screenshot_credit_units=0
+review_count=0
+api_supported_checks=0
 feedback=("${artifact_feedback[@]}")
 
 for rule in "${criteria[@]}"; do
@@ -374,7 +651,8 @@ PY
   fi
 
   if [[ -z "${ocr_text//[[:space:]]/}" ]]; then
-    feedback+=("$filename: unreadable OCR (0)")
+    review_count=$((review_count + 1))
+    feedback+=("$filename: valid image but OCR remained inconclusive after adaptive retries; review required (provisional 0)")
     continue
   fi
 
@@ -393,6 +671,7 @@ PY
   # of a screenshot check; task evidence is 85%.
   identity_required=false
   identity_verified=true
+  identity_corroborated=false
   case "$identity_flag" in
     username)
       identity_required=true
@@ -405,7 +684,11 @@ PY
       identity_required=true
       if ! python3 "$grader_root/scripts/ocr_evidence.py" \
         prompt "$normalized_username" "$ocr_file"; then
-        identity_verified=false
+        if [[ "$submission_prompt_seen" == "1" ]]; then
+          identity_corroborated=true
+        else
+          identity_verified=false
+        fi
       fi
       ;;
   esac
@@ -423,13 +706,34 @@ PY
       tr -s ' '
   )"
 
+  anchor_verified=false
+  anchor_pattern="${task_anchors[$filename]:-}"
+  if [[ -n "$anchor_pattern" ]] && grep -Eqi -- "$anchor_pattern" <<<"$ocr_normalized"; then
+    anchor_verified=true
+  fi
+
   evidence_total=0
   evidence_matched=0
+  evidence_index=0
+  missing_labels=()
+  readarray -t current_labels < <(
+    printf '%s\n' "${evidence_labels[$filename]:-}" | sed 's/;;/\n/g'
+  )
   while IFS= read -r evidence_pattern; do
     [[ -z "$evidence_pattern" ]] && continue
     evidence_total=$((evidence_total + 1))
+    evidence_index=$((evidence_index + 1))
+    indicator_matched=false
     if grep -Eqi -- "$evidence_pattern" <<<"$ocr_normalized"; then
+      indicator_matched=true
+    elif [[ "$anchor_verified" == true ]] && api_indicator_verified "$filename" "$evidence_index"; then
+      indicator_matched=true
+      api_supported_checks=$((api_supported_checks + 1))
+    fi
+    if [[ "$indicator_matched" == true ]]; then
       evidence_matched=$((evidence_matched + 1))
+    else
+      missing_labels+=("${current_labels[$((evidence_index - 1))]:-required indicator $evidence_index}")
     fi
   done < <(printf '%s\n' "$evidence_groups" | sed 's/;;/\n/g')
 
@@ -477,14 +781,29 @@ PY
     evidence_total=$((evidence_total + 2))
     if (( lfs_entry_count >= 3 )); then
       evidence_matched=$((evidence_matched + 1))
+    else
+      missing_labels+=("three different LFS-tracked .bin files")
     fi
     if (( lfs_size_count >= 3 )); then
       evidence_matched=$((evidence_matched + 1))
+    else
+      missing_labels+=("all three files larger than 100 MiB")
     fi
   fi
 
+  if [[ "$anchor_verified" != true ]]; then
+    if (( evidence_matched >= 2 )); then
+      review_count=$((review_count + 1))
+      feedback+=("$filename: some related text was found, but the task-specific command/page anchor was not reliably detected; review required (provisional 0)")
+    else
+      feedback+=("$filename: required task-specific command or page was not detected (0)")
+    fi
+    continue
+  fi
+
   if (( evidence_total == 0 || evidence_matched == 0 )); then
-    feedback+=("$filename: required task evidence was not detected (0)")
+    review_count=$((review_count + 1))
+    feedback+=("$filename: correct task context was detected, but the required result remained OCR-inconclusive; review required (provisional 0)")
     continue
   fi
 
@@ -492,7 +811,11 @@ PY
     credit_units=$((850 * evidence_matched / evidence_total))
     if [[ "$identity_verified" == true ]]; then
       credit_units=$((credit_units + 150))
-      identity_note="identity verified"
+      if [[ "$identity_corroborated" == true ]]; then
+        identity_note="identity corroborated elsewhere in the submission"
+      else
+        identity_note="identity verified"
+      fi
     else
       identity_note="identity not detected by OCR"
     fi
@@ -507,10 +830,15 @@ PY
     feedback+=("$filename: passed")
   else
     partial_credit=$((partial_credit + 1))
+    missing_text=""
+    if (( ${#missing_labels[@]} > 0 )); then
+      printf -v missing_text '%s, ' "${missing_labels[@]}"
+      missing_text="${missing_text%, }"
+    fi
     if [[ -n "$identity_note" ]]; then
-      feedback+=("$filename: partial credit - $evidence_matched/$evidence_total task indicators; $identity_note")
+      feedback+=("$filename: partial credit - missing: ${missing_text:-required task evidence}; $identity_note")
     else
-      feedback+=("$filename: partial credit - $evidence_matched/$evidence_total task indicators")
+      feedback+=("$filename: partial credit - missing: ${missing_text:-required task evidence}")
     fi
   fi
 done
@@ -546,10 +874,11 @@ print(value)
 PY
 )"
 
-summary="Earned $screenshot_equivalent/$required screenshot-check equivalents ($full_credit full, $partial_credit partial) and passed $artifact_passed/$artifact_required required assignment-file checks. $(IFS='; '; echo "${feedback[*]}")"
+summary="Earned $screenshot_equivalent/$required screenshot-check equivalents ($full_credit full, $partial_credit partial) and passed $artifact_passed/$artifact_required required assignment-file checks. GitHub API repaired $api_supported_checks OCR indicator(s). $(IFS='; '; echo "${feedback[*]}")"
 node -e '
   console.log(JSON.stringify({
     score: Number(process.argv[1]),
-    feedback: process.argv[2]
+    feedback: process.argv[2],
+    review_count: Number(process.argv[3])
   }))
-' "$score" "$summary"
+' "$score" "$summary" "$review_count"

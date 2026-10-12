@@ -23,9 +23,16 @@ if (replyTo && !isEmail(replyTo)) throw new Error("EMAIL_REPLY_TO must be a vali
 
 const trusted = new Map(students.map((student) => [String(student.github_username).trim().toLowerCase(), student]));
 const messages = [];
+let reviewSkipped = 0;
 
 for (const result of results) {
   const student = validateResult(result, trusted, config);
+  const reviewCount = Number(result.review_count || 0);
+  if (result.status === "graded" && reviewCount > 0) {
+    console.warn(`Skipping ${safeLog(student.registration_number)}: ${reviewCount} OCR/evidence check(s) require review, so provisional marks were not emailed.`);
+    reviewSkipped++;
+    continue;
+  }
   const recipient = String(student.email || "").trim();
   if (!isEmail(recipient)) {
     console.warn(`Skipping ${safeLog(student.registration_number)}: no valid student email address.`);
@@ -35,6 +42,10 @@ for (const result of results) {
   messages.push(buildMessage({ config, result, student, recipient, gmailUser, fromName, replyTo }));
 }
 
+if (!messages.length && reviewSkipped > 0) {
+  console.log(`Email delivery skipped: ${reviewSkipped} provisional result(s) require review.`);
+  process.exit(0);
+}
 if (!messages.length) throw new Error("No students with valid email addresses were available.");
 
 if (dryRun) {
@@ -91,6 +102,10 @@ function validateResult(result, trustedStudents, assignment) {
   if (result.status === "graded") {
     if (!Number.isFinite(result.obtained) || !Number.isFinite(result.total) || result.obtained < 0 || result.obtained > result.total) {
       throw new Error(`Invalid marks for ${safeLog(result.github_username)}.`);
+    }
+    const reviewCount = Number(result.review_count || 0);
+    if (!Number.isInteger(reviewCount) || reviewCount < 0) {
+      throw new Error(`Invalid manual-review count for ${safeLog(result.github_username)}.`);
     }
   }
   return student;

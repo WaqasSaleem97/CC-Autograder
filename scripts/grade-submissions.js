@@ -57,7 +57,9 @@ for (const student of students) {
           HOME: process.env.HOME || "/tmp",
           LANG: "C.UTF-8",
           OCR_JOBS: process.env.OCR_JOBS || "4",
-          OMP_THREAD_LIMIT: process.env.OMP_THREAD_LIMIT || "1"
+          OMP_THREAD_LIMIT: process.env.OMP_THREAD_LIMIT || "1",
+          STUDENT_REGISTRATION_NUMBER: String(student.registration_number || ""),
+          GH_TOKEN: process.env.GH_TOKEN || ""
         }
       }).trim();
       testResult = JSON.parse(output.split(/\r?\n/).at(-1));

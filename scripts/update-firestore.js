@@ -31,6 +31,11 @@ for (const result of results) {
   if (!Number.isFinite(result.obtained) || result.obtained < 0 || result.total !== config.totalMarks || result.obtained > result.total) throw new Error("Invalid marks.");
   const reviewCount = Number(result.review_count || 0);
   if (!Number.isInteger(reviewCount) || reviewCount < 0) throw new Error("Invalid manual-review count.");
+  if (reviewCount > 0) {
+    console.warn(`Skipped ${student.registration_number}: ${reviewCount} OCR/evidence check(s) require review, so provisional marks were not published.`);
+    skipped++;
+    continue;
+  }
   const ref = db.doc(student.enrollment_path);
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);

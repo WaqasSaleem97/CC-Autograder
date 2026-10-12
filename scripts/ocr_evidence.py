@@ -93,6 +93,54 @@ def trailing_digit_ocr_match(expected: str, candidate: str) -> bool:
     return False
 
 
+def url_username_matches(expected: str, text: str) -> bool:
+    """Match stronger OCR distortion only inside a GitHub URL-like line.
+
+    Tiny browser address bars can turn ``github.com/nibasadiq`` into text such
+    as ``githebcon/nbssdiq``. The wider tolerance is deliberately limited to a
+    line containing a close OCR rendering of github.com or github.io, and to a
+    short substring with matching endpoints. It is not used for ordinary page
+    text or terminal prompts.
+    """
+
+    wanted = compact(expected)
+    if len(wanted) < 6:
+        return False
+
+    targets = ("github", "githubcom", "githubio")
+    protected_suffix = re.fullmatch(r"(.+?)([0-9]{2,})", wanted)
+    minimum_length = max(4, len(wanted) - 2)
+    maximum_length = len(wanted) + 2
+    allowance = min(3, max(2, len(wanted) // 3))
+
+    for line in unicodedata.normalize("NFKC", text).casefold().splitlines():
+        tokens = [compact(token) for token in re.findall(r"[a-z0-9-]+", line)]
+        tokens = [token for token in tokens if token]
+        has_github_context = any(
+            abs(len(token) - len(target)) <= 3
+            and edit_distance(token, target) <= 4
+            for token in tokens
+            for target in targets
+        )
+        if not has_github_context:
+            continue
+
+        for token in tokens:
+            if len(token) < minimum_length:
+                continue
+            for length in range(minimum_length, maximum_length + 1):
+                for start in range(0, len(token) - length + 1):
+                    candidate = token[start : start + length]
+                    if candidate[0] != wanted[0] or candidate[-1] != wanted[-1]:
+                        continue
+                    if protected_suffix is not None:
+                        if trailing_digit_ocr_match(wanted, candidate):
+                            return True
+                    elif edit_distance(wanted, candidate) <= allowance:
+                        return True
+    return False
+
+
 def username_matches(expected: str, text: str) -> bool:
     wanted = compact(expected)
     if not wanted:
@@ -111,8 +159,10 @@ def username_matches(expected: str, text: str) -> bool:
         return any(
             trailing_digit_ocr_match(wanted, candidate)
             for candidate in candidates
-        )
-    return any(edit_distance(wanted, candidate) <= allowance for candidate in candidates)
+        ) or url_username_matches(wanted, text)
+    return any(
+        edit_distance(wanted, candidate) <= allowance for candidate in candidates
+    ) or url_username_matches(wanted, text)
 
 
 def word_matches(expected: str, text: str, allowance: int = 1) -> bool:
@@ -147,14 +197,13 @@ def prompt_matches(expected: str, text: str) -> bool:
     return False
 
 
-RAW_CREDENTIAL_PATTERN = re.compile(
+RAW_SECRET_PATTERN = re.compile(
     r"("
     r"begin.*private\s+key|"
     r"(?:akia|asia)[0-9a-z]{16}|"
     r"ghp_[0-9a-z]{30,}|"
     r"github_pat_[0-9a-z_]{30,}|"
     r"aws_secret_access_key\s*=\s*[0-9a-z/+=]{20,}|"
-    r"https?://[^\s@/:]+:[^\s@/<>]{6,}@|"
     r"authorization:\s*(?:token|bearer)\s+[0-9a-z._-]{12,}|"
     r"(?:personal[\s_-]*access[\s_-]*token|access[\s_-]*token|new_token)"
     r"[\s:=]+[0-9a-z._-]{16,}"
@@ -162,9 +211,8 @@ RAW_CREDENTIAL_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
-COMPACT_CREDENTIAL_PATTERN = re.compile(
+COMPACT_SECRET_PATTERN = re.compile(
     r"("
-    r"https?://[^@/:]+:[^@/<>]{6,}@|"
     r"ghp_[0-9a-z]{30,}|"
     r"github_pat_[0-9a-z_]{30,}|"
     r"authorization:(?:token|bearer)[0-9a-z._-]{12,}|"
@@ -172,6 +220,26 @@ COMPACT_CREDENTIAL_PATTERN = re.compile(
     r"access(?:token)?[:=][0-9a-z._-]{16,}|"
     r"new_token[:=][0-9a-z._-]{16,}"
     r")",
+    flags=re.IGNORECASE,
+)
+
+RAW_CREDENTIAL_URL_PATTERN = re.compile(
+    r"https?://[^\s@/:]+:[^\s@/<>]{6,}@",
+    flags=re.IGNORECASE,
+)
+
+COMPACT_CREDENTIAL_URL_PATTERN = re.compile(
+    r"https?://[^@/:]+:[^@/<>]{6,}@",
+    flags=re.IGNORECASE,
+)
+
+AUTH_PROMPT_PATTERN = re.compile(
+    r"(?:^|\s)(?:user\s*name|username|password)\s+for\b",
+    flags=re.IGNORECASE,
+)
+
+URL_IN_PROMPT_PATTERN = re.compile(
+    r"https?://[^'\"‘’<>]+",
     flags=re.IGNORECASE,
 )
 
@@ -187,10 +255,28 @@ def credential_exposed(text: str) -> bool:
 
     normalized = unicodedata.normalize("NFKC", text)
     for line in normalized.splitlines():
-        if RAW_CREDENTIAL_PATTERN.search(line):
+        if RAW_SECRET_PATTERN.search(line):
             return True
         compact_line = re.sub(r"[\t \f\v]+", "", line)
-        if COMPACT_CREDENTIAL_PATTERN.search(compact_line):
+        if COMPACT_SECRET_PATTERN.search(compact_line):
+            return True
+
+        # A Git username/password prompt does not reveal the hidden password.
+        # Inspect only the URL on prompt lines so the colon after the quoted
+        # URL cannot combine with a later username and become a false URL
+        # credential match after OCR whitespace is removed.
+        if AUTH_PROMPT_PATTERN.search(line):
+            for url in URL_IN_PROMPT_PATTERN.findall(line):
+                compact_url = re.sub(r"[\t \f\v]+", "", url)
+                if RAW_CREDENTIAL_URL_PATTERN.search(url) or (
+                    COMPACT_CREDENTIAL_URL_PATTERN.search(compact_url)
+                ):
+                    return True
+            continue
+
+        if RAW_CREDENTIAL_URL_PATTERN.search(line):
+            return True
+        if COMPACT_CREDENTIAL_URL_PATTERN.search(compact_line):
             return True
     return False
 
