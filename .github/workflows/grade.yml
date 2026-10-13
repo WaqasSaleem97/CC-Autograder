@@ -19,10 +19,13 @@ on:
         default: "Lab 1"
         type: string
       repository_name:
-        description: "Student repository name"
+        description: "Student repository and grading course"
         required: true
         default: "CC"
-        type: string
+        type: choice
+        options:
+          - "CC"
+          - "DevOps"
       submission_path:
         description: "Select the directory containing the student submission"
         required: true
@@ -165,14 +168,14 @@ jobs:
         run: npm run check
       - name: Select trusted test script automatically
         env:
-          COURSE_ID: ${{ inputs.course_id }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
           SUBMISSION_PATH: ${{ inputs.submission_path }}
         run: |
-          case "${COURSE_ID,,}" in
+          case "${REPOSITORY_NAME,,}" in
             "cc") TEST_COURSE="CC" ;;
             "devops") TEST_COURSE="DevOps" ;;
             *)
-              echo "::error::Unsupported test course: $COURSE_ID. Use CC or DevOps."
+              echo "::error::Unsupported student repository: $REPOSITORY_NAME. Use CC or DevOps."
               exit 1
               ;;
           esac
@@ -271,14 +274,14 @@ jobs:
       - run: npm ci
       - name: Select trusted test script automatically
         env:
-          COURSE_ID: ${{ inputs.course_id }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
           SUBMISSION_PATH: ${{ inputs.submission_path }}
         run: |
-          case "${COURSE_ID,,}" in
+          case "${REPOSITORY_NAME,,}" in
             "cc") TEST_COURSE="CC" ;;
             "devops") TEST_COURSE="DevOps" ;;
             *)
-              echo "::error::Unsupported test course: $COURSE_ID. Use CC or DevOps."
+              echo "::error::Unsupported student repository: $REPOSITORY_NAME. Use CC or DevOps."
               exit 1
               ;;
           esac
