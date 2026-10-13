@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import math
+import os
 import re
 from pathlib import Path
 
@@ -452,6 +453,16 @@ def main() -> int:
         print(f"OCR failed for {source}: {error}", file=sys.stderr)
         text = ""
     output.write_text(text, encoding="utf-8")
+
+    # The grading workflow may request a persistent, per-student copy for the
+    # manual image-audit report. Individual test scripts can continue using
+    # temporary OCR directories; this shared helper handles the audit copy for
+    # every present and future screenshot-based assessment.
+    audit_directory = os.environ.get("OCR_AUDIT_DIR", "").strip()
+    if audit_directory:
+        audit_output = Path(audit_directory) / output.name
+        audit_output.parent.mkdir(parents=True, exist_ok=True)
+        audit_output.write_text(text, encoding="utf-8")
     return 0
 
 

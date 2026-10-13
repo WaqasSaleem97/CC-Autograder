@@ -45,6 +45,36 @@ unless the result emails should be sent again.
 - `All` with `A` or `B` grades that section.
 - `Registration numbers` grades only the comma-separated numbers that also match the selected section.
 
+## Manual image audit for every assessment
+
+The workflow can create the same manual image-audit report for CC or DevOps
+Labs, Assignments, Quizzes, Mid, Final, and Project submissions. The feature is
+implemented once in the shared grading workflow; assessment-specific marking
+criteria remain inside the corresponding `tests/<course>/<assessment>/test.sh`.
+
+Choose one `image_audit_scope` when starting a grading run:
+
+- `Risk-based sample` includes every existing screenshot that failed, received
+  partial credit, or requires review; unmatched evidence; missing expected
+  screenshots; exact duplicate passes; and a deterministic 10% sample of the
+  remaining automatic passes. This is the recommended normal audit.
+- `All screenshots` includes every submitted screenshot and is suitable for a
+  complete pre-publication audit.
+- `Off` skips report creation.
+
+Download the `image-audit-report` workflow artifact and open `index.html`. Each
+entry shows the submitted image, the automatic decision and explanation,
+redacted OCR text when the grader used the shared OCR helper, duplicate-image
+matches, and the exact SHA-256 image hash. Mark the entry as `Keep automatic
+result`, `Accept evidence`, `Reject evidence`, or `Review later`, add a note,
+and select `Download reviewed CSV`.
+
+The downloaded CSV records only reviewed changes or notes. It does not alter
+marks automatically. Run the first audit with `update_firestore` and
+`send_email_results` disabled, confirm any corrections, and publish only after
+the audited result is final. The image hash prevents a decision for an older
+screenshot from being silently reused after the evidence changes.
+
 ## Test-script contract
 
 The workflow calls:

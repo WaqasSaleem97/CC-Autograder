@@ -14,6 +14,12 @@ const students = JSON.parse(readFileSync(path.resolve(root, argument("--students
 const testScript = path.resolve(root, config.testScript);
 const results = [];
 const preparationErrors = new Map();
+const auditEnabled = String(process.env.IMAGE_AUDIT_SCOPE || "Off").toLowerCase() !== "off";
+
+const safeDirectoryName = (value) => String(value || "unknown")
+  .trim()
+  .replace(/[^A-Za-z0-9._-]+/g, "-")
+  .replace(/^-+|-+$/g, "") || "unknown";
 
 // Normalize every collected repository before the first student is graded so
 // duplicate detection sees the same case-insensitive filenames for everyone.
@@ -59,7 +65,14 @@ for (const student of students) {
           OCR_JOBS: process.env.OCR_JOBS || "4",
           OMP_THREAD_LIMIT: process.env.OMP_THREAD_LIMIT || "1",
           STUDENT_REGISTRATION_NUMBER: String(student.registration_number || ""),
-          GH_TOKEN: process.env.GH_TOKEN || ""
+          GH_TOKEN: process.env.GH_TOKEN || "",
+          OCR_AUDIT_DIR: auditEnabled
+            ? path.join(
+              root,
+              "results/ocr-audit",
+              safeDirectoryName(student.registration_number || username)
+            )
+            : ""
         }
       }).trim();
       testResult = JSON.parse(output.split(/\r?\n/).at(-1));

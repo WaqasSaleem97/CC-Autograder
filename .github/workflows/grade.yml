@@ -94,6 +94,15 @@ on:
         description: "Comma-separated numbers; required for Registration numbers"
         required: false
         type: string
+      image_audit_scope:
+        description: "Create a manual image-audit report for any assessment type"
+        required: true
+        default: "Risk-based sample"
+        type: choice
+        options:
+          - "Risk-based sample"
+          - "All screenshots"
+          - "Off"
       update_firestore:
         description: "Save generated marks to Firestore"
         required: true
@@ -248,9 +257,15 @@ jobs:
       - name: Grade submissions
         env:
           GH_TOKEN: ${{ secrets.STUDENT_REPOS_TOKEN }}
+          IMAGE_AUDIT_SCOPE: ${{ inputs.image_audit_scope }}
         run: node scripts/grade-submissions.js --students-file results/students.json
       - name: Show results
         run: node scripts/show-results.js
+      - name: Create manual image-audit report
+        if: ${{ inputs.image_audit_scope != 'Off' }}
+        env:
+          IMAGE_AUDIT_SCOPE: ${{ inputs.image_audit_scope }}
+        run: node scripts/create-image-audit.js --scope "$IMAGE_AUDIT_SCOPE"
       - name: Upload grading results
         uses: actions/upload-artifact@v4
         with:
@@ -258,6 +273,14 @@ jobs:
           path: results/grading-results.json
           if-no-files-found: error
           retention-days: 7
+      - name: Upload manual image-audit report
+        if: ${{ inputs.image_audit_scope != 'Off' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-audit-report
+          path: results/image-audit
+          if-no-files-found: error
+          retention-days: 3
 
   update-firestore:
     name: Publish trusted grading results
