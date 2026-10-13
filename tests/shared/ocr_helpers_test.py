@@ -12,7 +12,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 from scripts.ocr_evidence import (
     credential_exposed,
+    github_url_matches,
     prompt_matches,
+    repository_page_matches,
     username_matches,
 )
 from scripts.ocr_screenshot import (
@@ -101,6 +103,38 @@ class IdentityMatchingTests(unittest.TestCase):
             prompt_matches("areebahabib", "areeba@ubuntu:~/Assignment01$")
         )
 
+    def test_github_url_recovers_a_joined_distorted_address_bar(self):
+        self.assertTrue(
+            github_url_matches(
+                "nibasadiq",
+                "browser controls nbeasdqsthebic profile controls",
+            )
+        )
+
+    def test_github_url_does_not_accept_portfolio_content_without_a_url(self):
+        self.assertFalse(
+            github_url_matches(
+                "fatimajaleel",
+                "Fatima Jaleel portfolio education skills and projects",
+            )
+        )
+
+    def test_repository_page_accepts_distorted_pages_repo_navigation(self):
+        self.assertTrue(
+            repository_page_matches(
+                "nibasadiq",
+                "nibasadig.githebio Pocages Retosues Contentions",
+            )
+        )
+
+    def test_repository_page_rejects_live_portfolio_content(self):
+        self.assertFalse(
+            repository_page_matches(
+                "nibasadiq",
+                "nbeasdqsthebic About Me Education Skills Projects",
+            )
+        )
+
 
 class CredentialDetectionTests(unittest.TestCase):
     def test_normal_url_and_later_ubuntu_prompt_are_not_joined(self):
@@ -150,6 +184,21 @@ student-name@ubuntu:~/Assignment01$
         self.assertTrue(
             credential_exposed(
                 "Password for 'http://student : visible-password @ 127.0.0.1:3000':"
+            )
+        )
+
+    def test_credential_url_with_ocr_lost_at_sign_is_rejected(self):
+        self.assertTrue(
+            credential_exposed(
+                "git push http://student : "
+                "49481f e42c1988ebdf 774e7a4583705879cefd2bG127.0.0.1:3000/repo"
+            )
+        )
+
+    def test_normal_local_gitea_url_is_not_a_credential(self):
+        self.assertFalse(
+            credential_exposed(
+                "git remote add gitea http://127.0.0.1:3000/student/repo.git"
             )
         )
 

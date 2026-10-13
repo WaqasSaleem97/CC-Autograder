@@ -36,7 +36,7 @@ fi
 submission_input="$1"
 total_marks="$2"
 
-for command in tesseract python3 git node sha256sum realpath env xargs find grep sed awk tr cut sort nproc pdfinfo pdftotext pdfimages; do
+for command in tesseract python3 git node sha256sum realpath env timeout xargs find grep sed awk tr cut sort nproc pdfinfo pdftotext pdfimages; do
   command -v "$command" >/dev/null 2>&1 || {
     if command -v node >/dev/null 2>&1; then
       json_error "Required grading tool is missing: $command"
@@ -129,12 +129,12 @@ normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:
 # the complete screenshot mark because one word was misread. Alternatives
 # inside one expression use normal extended-regex parentheses and |.
 readarray -t criteria <<'EOF'
-task1_gitea_running.png|ubuntu|((docker|dacker)[[:space:]]+compose[[:space:]]+ps|[dj]o[ck][a-z|]*[^[:alnum:]]+(compose|c[oa][mn][a-z]{2,5}|car[a-z]{2,5}));;gite[as];;(postgres|gitea_db|[gct]ite[as][[:space:]_.-]+d[bsoc]|g[eo]stg[er][ea][es]|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gite[as].{0,24}(status|statue|gangs)[^[:alnum:]]*2[0-9oe8]{2}|http[[:space:]]+status.*2[0-9oe8]{2}|http/[12]([.][0-9]+)?[[:space:]]+2[0-9]{2}([[:space:]]+ok)?|(127[.]0[.]0[.]1|localhost):3000.*[[:space:]]2[0-9oe8]{2}([[:space:]]|$))
+task1_gitea_running.png|ubuntu|((docker|dacker)[[:space:]]+compose[[:space:]]+ps|[dj]o[ck][a-z|]*[^[:alnum:]]+(compose|c[oa][mn][a-z]{2,5}|car[a-z]{2,5}));;gite[as];;(postgres|gitea_db|[gct]ite[as][[:space:]_.-]+d[bsoc]|g[eo]stg[er][ea][es]|[[:space:]]db[[:space:]]);;(up|running|healthy);;(gite[as].{0,24}(status|statue|ststus|gangs)[^[:alnum:]]*2[0-9oe8]{2}|http[[:space:]]+(status|statue|ststus).*2[0-9oe8]{2}|http/[12]([.][0-9]+)?[[:space:]]+2[0-9]{2}([[:space:]]+ok)?|(127[.]0[.]0[.]1|localhost):3000.*[[:space:]]2[0-9oe8]{2}([[:space:]]|$))
 task1_gitea_repository.png|none|(gitea|:[[:space:]]*3000|repositories|packages.*releases.*wiki.*activity);;assignment[[:space:]_@-]*[0o]?[1li];;readme;;(assignment[[:space:]_@-]*[0o]?[1li].{0,24}pub[li1]?ic|pub[li1]?ic.{0,24}assignment[[:space:]_@-]*[0o]?[1li]|20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
 task1_gitea_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+[gq]?[i1l]tea[[:space:]]+main;;([gq]?[i1l]tea|:[[:space:]]*3000);;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*gitea/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
 task2_github_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+([gj][i1l]t[hnu]u[b8]|https?[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m)[^[:space:]]*[[:space:]]+main;;[gj][i1l]t[hnu]u[b8]([.]c[oa]m)?;;(new[[:space:]]+branch|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|track.*github/main|everything[[:space:]]+up[[:space:]]+to[[:space:]]+date|main[[:space:]]*->[[:space:]]*main)
 task2_remotes.png|ubuntu|git[[:space:]]+remote([[:space:]]+-v)?;;gitea.*(127[.][0o@][.][0o@]([.][li1])?|localhost|:[[:space:]]*[23]?[0o6][0o@][0o@]?);;[gj][i1l]t[hnu]u[b8].*[gj][i1l]t[hnu]u[b8][.]c[oa]m;;fetch;;push
-task2_github_repository.png|username|assignment[[:space:]_@-]*[0o]?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;(assignment[[:space:]_@-]*[0o]?[1li].{0,24}pub[li1]?ic|pub[li1]?ic.{0,24}assignment[[:space:]_@-]*[0o]?[1li]);;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
+task2_github_repository.png|username|assignment[[:space:]_@-]*[0o]?[1li];;readme;;(github([.]com)?|security[[:space:]]+and[[:space:]]+quality|pull[[:space:]]+requests|insights|agents);;(assignment[[:space:]_@-]*[0o]?[1li].{0,24}(pub[li1]?ic|pubic|usic)|(pub[li1]?ic|pubic|usic).{0,24}assignment[[:space:]_@-]*[0o]?[1li]);;(20[0-9]{2}[-[:space:]]*[a-z]{2,4}[-[:space:]]*[0-9]{1,3}|fa[0-9]{2}[a-z0-9-]{4,}|registration|roll[[:space:]]*(number|no))
 task3_lfs_setup.png|ubuntu|(git[[:space:]]+[li1]{0,2}fs[[:space:]]+install|git[[:space:]]+[li1]{0,2}fs[[:space:]]+initialized|[li1]{0,2}fs[[:space:]]+initialized);;(git[[:space:]]+[li1]{0,2}fs[[:space:]]+version|git-[li1]{0,2}fs/[0-9]);;git[[:space:]]+[li1]{0,2}fs[[:space:]]+track;;gitattributes;;[.]bin
 task3_lfs_files.png|ubuntu|git[[:space:]]+[li1]{0,2}fs[[:space:]]+[li1]?s-files([[:space:]]+--size)?;;[.]bin
 task3_lfs_push.png|ubuntu|git[[:space:]]+push([[:space:]]+[-]?u)?[[:space:]]+([gj][i1l]t[hnu]u[b8]|https?[^[:space:]]*[gj][i1l]t[hnu]u[b8][.]c[oa]m)[^[:space:]]*[[:space:]]+main;;(uploading[[:space:]]+[li1]{0,2}fs[[:space:]]+objects?|[li1]{0,2}fs[[:space:]]+objects?);;(100%|3[[:space:]]*/[[:space:]]*3);;[gj][i1l]t[hnu]u[b8]([.]c[oa]m)?
@@ -146,7 +146,7 @@ EOF
 required=${#criteria[@]}
 
 declare -A task_anchors=(
-  [task1_gitea_running.png]="((docker|dacker)[[:space:]]+compose[[:space:]]+ps|[dj]o[ck][a-z|]*[^[:alnum:]]+(compose|c[oa][mn][a-z]{2,5}|car[a-z]{2,5})|gite[as].{0,24}(status|statue|gangs)[^[:alnum:]]*2[0-9oe8]{2}|http/[12]([.][0-9]+)?[[:space:]]+2[0-9]{2}|[gct]ite[as][[:space:]_.-]+d[bsoc].*(up|running|healthy)|postgres.*(up|running|healthy))"
+  [task1_gitea_running.png]="((docker|dacker)[[:space:]]+compose[[:space:]]+ps|[dj]o[ck][a-z|]*[^[:alnum:]]+(compose|c[oa][mn][a-z]{2,5}|car[a-z]{2,5})|gite[as].{0,24}(status|statue|ststus|gangs)[^[:alnum:]]*2[0-9oe8]{2}|http/[12]([.][0-9]+)?[[:space:]]+2[0-9]{2}|[gct]ite[as][[:space:]_.-]+d[bsoc].*(up|running|healthy)|postgres.*(up|running|healthy))"
   [task1_gitea_repository.png]="((gitea|:[[:space:]]*3000).*(assignment[[:space:]_@-]*[0o]?[1li])|(assignment[[:space:]_@-]*[0o]?[1li]).*(gitea|:[[:space:]]*3000)|(repositories|packages|public[[:space:]]+activity).*(assignment[[:space:]_@-]*[0o]?[1li])|(assignment[[:space:]_@-]*[0o]?[1li]).*(repositories|packages|public[[:space:]]+activity))"
   [task1_gitea_push.png]="(git[[:space:]]+push.*[gq]?[i1l]tea|[gq]?[i1l]tea/main|127[.]0[.]0[.]1:3000.*assignment[[:space:]_@-]*[0o]?[1li])"
   [task2_github_push.png]="(git[[:space:]]+push.*([gj][i1l]t[hnu]u[b8]|github[.]com)|github/main|github[.]com.*assignment[[:space:]_@-]*[0o]?[1li])"
@@ -262,146 +262,87 @@ print(int(prompt_matches(username, text)))
 PY
 ) || true
 
-# Positive API results may repair an OCR-missed indicator only after the
-# submitted screenshot itself passes its task-specific anchor. They never
-# replace a missing screenshot or local terminal evidence, and API errors never
-# lower marks.
-github_api_file="$ocr_dir/github-api.tsv"
-: > "$github_api_file"
-if [[ -n "${GH_TOKEN:-}" ]]; then
-  python3 - "$normalized_username" "$registration_number" "$github_api_file" <<'PY'
-import base64
-from concurrent.futures import ThreadPoolExecutor
-import json
-import os
-import re
-import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-
-username, registration, output = sys.argv[1:]
-token = os.environ.get("GH_TOKEN", "").strip()
-api = "https://api.github.com"
-owner = urllib.parse.quote(username, safe="")
-headers = {
-    "Accept": "application/vnd.github+json",
-    "Authorization": f"Bearer {token}",
-    "User-Agent": "CC-Autograder-Assignment01",
-    "X-GitHub-Api-Version": "2022-11-28",
-}
-
-def request_json(url):
-    try:
-        request = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(request, timeout=5) as response:
-            return json.load(response), "ok"
-    except urllib.error.HTTPError as error:
-        return None, "missing" if error.code == 404 else "unknown"
-    except (OSError, ValueError):
-        return None, "unknown"
-
-def public_html(url):
-    try:
-        request = urllib.request.Request(
-            url, headers={"User-Agent": "CC-Autograder-Assignment01"}
-        )
-        with urllib.request.urlopen(request, timeout=5) as response:
-            content_type = response.headers.get("content-type", "")
-            body = response.read(1_000_000).decode("utf-8", errors="replace")
-            return response.status < 400 and "html" in content_type.casefold(), body
-    except (OSError, urllib.error.HTTPError):
-        return False, ""
-
-assignment_url = f"{api}/repos/{owner}/Assignment01"
-pages_name = urllib.parse.quote(f"{username}.github.io", safe="")
-pages_url = f"{api}/repos/{owner}/{pages_name}"
-live_url = f"https://{username}.github.io/"
-
-with ThreadPoolExecutor(max_workers=3) as executor:
-    assignment_future = executor.submit(request_json, assignment_url)
-    pages_repo_future = executor.submit(request_json, pages_url)
-    live_future = executor.submit(public_html, live_url)
-    assignment, assignment_status = assignment_future.result()
-    pages_repo, pages_repo_status = pages_repo_future.result()
-    live, html = live_future.result()
-
-flags = {"assignment_repo": assignment_status == "ok", "pages_repo": pages_repo_status == "ok"}
-if assignment_status == "ok":
-    flags["assignment_public"] = not bool(assignment.get("private", True))
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        contents_future = executor.submit(request_json, f"{assignment_url}/contents")
-        readme_future = executor.submit(request_json, f"{assignment_url}/readme")
-        contents, contents_status = contents_future.result()
-        readme, readme_status = readme_future.result()
-    names = {
-        str(item.get("name", "")).casefold()
-        for item in contents or [] if isinstance(item, dict)
-    }
-    flags["assignment_readme"] = contents_status == "ok" and "readme.md" in names
-    if readme_status == "ok" and registration:
-        try:
-            readme_text = base64.b64decode(
-                str(readme.get("content", "")).replace("\n", "")
-            ).decode("utf-8", errors="replace")
-        except (ValueError, TypeError):
-            readme_text = ""
-        wanted = re.sub(r"[^a-z0-9]", "", registration.casefold())
-        seen = re.sub(r"[^a-z0-9]", "", readme_text.casefold())
-        flags["assignment_registration"] = bool(wanted and wanted in seen)
-
-if pages_repo_status == "ok":
-    flags["pages_public"] = not bool(pages_repo.get("private", True))
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        contents_future = executor.submit(request_json, f"{pages_url}/contents")
-        pages_future = executor.submit(request_json, f"{pages_url}/pages")
-        contents, contents_status = contents_future.result()
-        pages, pages_status = pages_future.result()
-    names = {
-        str(item.get("name", "")).casefold()
-        for item in contents or [] if isinstance(item, dict)
-    }
-    flags["pages_index"] = contents_status == "ok" and "index.html" in names
-    flags["pages_styles"] = contents_status == "ok" and "styles.css" in names
-    flags["pages_deployed"] = pages_status == "ok" and str(
-        pages.get("status", "")
-    ).casefold() == "built"
-
-flags["pages_live"] = live
-visible_html = re.sub(r"<[^>]+>", " ", html)
-flags["portfolio_content"] = live and bool(re.search(
-    r"portfolio|curriculum\s+vitae|\bcv\b|about\s+me|education|skills|projects",
-    visible_html,
-    flags=re.IGNORECASE,
-))
-
-with open(output, "w", encoding="utf-8") as destination:
-    for key, value in sorted(flags.items()):
-        destination.write(f"{key}\t{1 if value else 0}\n")
-PY
-fi
-unset GH_TOKEN
-
-api_flag() {
-  awk -F '\t' -v key="$1" '$1 == key {print $2; exit}' "$github_api_file"
-}
-
-api_indicator_verified() {
-  local filename="$1" indicator_index="$2" key=""
+# OCR-specific recoveries remain tied to text visible in the submitted image.
+# In particular, a live site elsewhere cannot replace a missing URL in the
+# deployment/live screenshot, and a repository lookup cannot rescue the wrong
+# screenshot.
+local_indicator_verified() {
+  local filename="$1" indicator_index="$2"
   case "$filename:$indicator_index" in
-    task2_github_repository.png:1|task2_github_repository.png:3) key="assignment_repo" ;;
-    task2_github_repository.png:2) key="assignment_readme" ;;
-    task2_github_repository.png:4) key="assignment_public" ;;
-    task2_github_repository.png:5) key="assignment_registration" ;;
-    task4_pages_repository.png:1) key="pages_repo" ;;
-    task4_pages_repository.png:2) key="pages_index" ;;
-    task4_pages_repository.png:3) key="pages_styles" ;;
-    task4_pages_repository.png:4) key="pages_public" ;;
-    task4_pages_deployment.png:1|task4_pages_deployment.png:2) key="pages_deployed" ;;
-    task4_pages_deployment.png:3|task4_portfolio_live.png:1) key="pages_live" ;;
-    task4_portfolio_live.png:2) key="portfolio_content" ;;
+    task2_github_repository.png:4)
+      grep -Eqi -- \
+        'assignment[[:space:]_@-]*[0o]?[1li].{0,20}(pub[li1]?ic|pubic|usic)' \
+        <<<"$ocr_normalized"
+      ;;
+    task4_pages_repository.png:1|task4_pages_deployment.png:3|task4_portfolio_live.png:1)
+      python3 "$grader_root/scripts/ocr_evidence.py" \
+        url "$normalized_username" "$ocr_file"
+      ;;
+    *)
+      return 1
+      ;;
   esac
-  [[ -n "$key" && "$(api_flag "$key")" == "1" ]]
+}
+
+# Public GitHub checks are deliberately lazy. They run only when OCR misses a
+# required source filename in an otherwise verified Pages-repository
+# screenshot. One metadata-only clone records the real repository tree without
+# downloading its file contents. It cannot replace screenshots, identities,
+# terminal commands, deployments, live-site URLs, or portfolio content.
+github_pages_tree_loaded=false
+github_pages_tree_available=false
+github_pages_tree_file="$ocr_dir/pages-repository-tree.txt"
+
+load_github_pages_tree() {
+  if [[ "$github_pages_tree_loaded" == true ]]; then
+    [[ "$github_pages_tree_available" == true ]]
+    return
+  fi
+
+  github_pages_tree_loaded=true
+  github_pages_tree_available=false
+  local repository_url clone_dir attempt
+  repository_url="https://github.com/$normalized_username/${normalized_username}.github.io.git"
+
+  for attempt in 1 2; do
+    clone_dir="$ocr_dir/pages-repository-$attempt"
+    if GIT_TERMINAL_PROMPT=0 timeout 20s git -c protocol.version=2 clone \
+      --quiet --depth=1 --filter=blob:none --no-checkout \
+      "$repository_url" "$clone_dir" >/dev/null 2>&1; then
+      if git -C "$clone_dir" ls-tree -r --name-only HEAD \
+        > "$github_pages_tree_file" 2>/dev/null; then
+        github_pages_tree_available=true
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+github_pages_file_exists() {
+  local required_file="$1"
+  load_github_pages_tree || return 1
+  grep -Fxi -- "$required_file" "$github_pages_tree_file" >/dev/null
+}
+
+github_indicator_verified() {
+  local filename="$1" indicator_index="$2"
+
+  case "$filename:$indicator_index" in
+    task4_pages_repository.png:2)
+      github_pages_file_exists index.html
+      ;;
+    task4_pages_repository.png:3)
+      github_pages_file_exists styles.css
+      ;;
+    task4_pages_repository.png:4)
+      # A successful anonymous clone proves that the repository is public.
+      load_github_pages_tree
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 # Build one exact-duplicate index for screenshots with the same filename across
@@ -601,7 +542,7 @@ full_credit=0
 partial_credit=0
 screenshot_credit_units=0
 review_count=0
-api_supported_checks=0
+github_supported_checks=0
 feedback=("${artifact_feedback[@]}")
 
 for rule in "${criteria[@]}"; do
@@ -708,7 +649,12 @@ PY
 
   anchor_verified=false
   anchor_pattern="${task_anchors[$filename]:-}"
-  if [[ -n "$anchor_pattern" ]] && grep -Eqi -- "$anchor_pattern" <<<"$ocr_normalized"; then
+  if [[ "$filename" == "task4_pages_repository.png" ]]; then
+    if python3 "$grader_root/scripts/ocr_evidence.py" \
+      repository "$normalized_username" "$ocr_file"; then
+      anchor_verified=true
+    fi
+  elif [[ -n "$anchor_pattern" ]] && grep -Eqi -- "$anchor_pattern" <<<"$ocr_normalized"; then
     anchor_verified=true
   fi
 
@@ -726,9 +672,13 @@ PY
     indicator_matched=false
     if grep -Eqi -- "$evidence_pattern" <<<"$ocr_normalized"; then
       indicator_matched=true
-    elif [[ "$anchor_verified" == true ]] && api_indicator_verified "$filename" "$evidence_index"; then
+    elif [[ "$anchor_verified" == true ]] &&
+         local_indicator_verified "$filename" "$evidence_index"; then
       indicator_matched=true
-      api_supported_checks=$((api_supported_checks + 1))
+    elif [[ "$anchor_verified" == true ]] &&
+         github_indicator_verified "$filename" "$evidence_index"; then
+      indicator_matched=true
+      github_supported_checks=$((github_supported_checks + 1))
     fi
     if [[ "$indicator_matched" == true ]]; then
       evidence_matched=$((evidence_matched + 1))
@@ -775,6 +725,23 @@ for index, match in enumerate(filename_matches):
         if unit.startswith("g") or value > 100:
             large.add(filename)
             break
+
+    if filename in large:
+        continue
+
+    # OCR frequently reads the unit in an otherwise clear parenthesized LFS
+    # size as `4B`, `#8`, `¥B`, or just `8`. Accept only a 3-4 digit value
+    # inside parentheses immediately following an ls-files entry; this cannot
+    # be satisfied by a hash, filename, or a separate `truncate` command.
+    for noisy_number in re.findall(
+        r"\(\s*([0-9o@il]{3,4})\s*[^)]{0,4}\)", evidence
+    ):
+        cleaned = noisy_number.translate(str.maketrans({
+            "o": "0", "@": "0", "i": "1", "l": "1",
+        }))
+        if cleaned.isdigit() and int(cleaned) > 100:
+            large.add(filename)
+            break
 print(len(names), len(large))
 PY
     )
@@ -792,18 +759,12 @@ PY
   fi
 
   if [[ "$anchor_verified" != true ]]; then
-    if (( evidence_matched >= 2 )); then
-      review_count=$((review_count + 1))
-      feedback+=("$filename: some related text was found, but the task-specific command/page anchor was not reliably detected; review required (provisional 0)")
-    else
-      feedback+=("$filename: required task-specific command or page was not detected (0)")
-    fi
+    feedback+=("$filename: required task-specific command or page was not detected (0)")
     continue
   fi
 
   if (( evidence_total == 0 || evidence_matched == 0 )); then
-    review_count=$((review_count + 1))
-    feedback+=("$filename: correct task context was detected, but the required result remained OCR-inconclusive; review required (provisional 0)")
+    feedback+=("$filename: correct task context was detected, but no required result indicator was detected (0)")
     continue
   fi
 
@@ -874,7 +835,7 @@ print(value)
 PY
 )"
 
-summary="Earned $screenshot_equivalent/$required screenshot-check equivalents ($full_credit full, $partial_credit partial) and passed $artifact_passed/$artifact_required required assignment-file checks. GitHub API repaired $api_supported_checks OCR indicator(s). $(IFS='; '; echo "${feedback[*]}")"
+summary="Earned $screenshot_equivalent/$required screenshot-check equivalents ($full_credit full, $partial_credit partial) and passed $artifact_passed/$artifact_required required assignment-file checks. Public GitHub verification repaired $github_supported_checks OCR indicator(s). $(IFS='; '; echo "${feedback[*]}")"
 node -e '
   console.log(JSON.stringify({
     score: Number(process.argv[1]),

@@ -165,6 +165,66 @@ def username_matches(expected: str, text: str) -> bool:
     ) or url_username_matches(wanted, text)
 
 
+def github_url_matches(expected: str, text: str) -> bool:
+    """Detect an OCR-distorted ``<username>.github.io`` browser URL.
+
+    Some small address bars join the username and host while heavily
+    distorting both, for example ``nbeasdqsthebic`` for
+    ``nibasadiq.github.io``. This wider recovery is used only for URL evidence,
+    never for ordinary identity matching.
+    """
+
+    if url_username_matches(expected, text):
+        return True
+
+    wanted = compact(expected)
+    host = "githubio"
+    if len(wanted) < 6:
+        return False
+
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    # Keep OCR-preserved dots inside a candidate before compacting it. Without
+    # this, a distorted `username.githebio` is split into two unrelated tokens.
+    for token in re.findall(r"[a-z0-9.-]+", normalized):
+        joined = compact(token)
+        minimum_split = max(4, len(wanted) - 3)
+        maximum_split = min(len(joined) - 5, len(wanted) + 1)
+        for split in range(minimum_split, maximum_split + 1):
+            seen_user, seen_host = joined[:split], joined[split:]
+            if (
+                abs(len(seen_host) - len(host)) <= 3
+                and edit_distance(wanted, seen_user) <= 4
+                and edit_distance(host, seen_host) <= 4
+            ):
+                return True
+    return False
+
+
+def repository_page_matches(expected: str, text: str) -> bool:
+    """Require both the expected Pages repository and repository-page UI.
+
+    A live portfolio also contains ``<username>.github.io``.  Repository-only
+    navigation words keep a live-site screenshot from being accepted after it
+    is renamed to the repository-evidence filename.  Small screenshots receive
+    a narrow two-edit OCR allowance for these long, distinctive words.
+    """
+
+    if not github_url_matches(expected, text):
+        return False
+
+    context_words = (
+        "branches",
+        "commits",
+        "releases",
+        "packages",
+        "contributors",
+        "settings",
+        "insights",
+        "pullrequests",
+    )
+    return any(word_matches(word, text, allowance=2) for word in context_words)
+
+
 def word_matches(expected: str, text: str, allowance: int = 1) -> bool:
     wanted = compact(expected)
     for token in re.findall(r"[a-z0-9]+", text.casefold()):
@@ -233,6 +293,16 @@ COMPACT_CREDENTIAL_URL_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+# A low-resolution terminal screenshot can preserve a long password/token but
+# lose the `@` separator immediately before the local Gitea host. Requiring an
+# explicit URL, username delimiter, at least 16 credential characters, and a
+# localhost marker keeps this recovery rule narrow enough to avoid treating a
+# normal host:port URL as a visible credential.
+COMPACT_CREDENTIAL_URL_MISSING_AT_PATTERN = re.compile(
+    r"https?://[^@/:]+:[0-9a-z._-]{16,}(?:127[.]|localhost)",
+    flags=re.IGNORECASE,
+)
+
 AUTH_PROMPT_PATTERN = re.compile(
     r"(?:^|\s)(?:user\s*name|username|password)\s+for\b",
     flags=re.IGNORECASE,
@@ -270,6 +340,8 @@ def credential_exposed(text: str) -> bool:
                 compact_url = re.sub(r"[\t \f\v]+", "", url)
                 if RAW_CREDENTIAL_URL_PATTERN.search(url) or (
                     COMPACT_CREDENTIAL_URL_PATTERN.search(compact_url)
+                ) or (
+                    COMPACT_CREDENTIAL_URL_MISSING_AT_PATTERN.search(compact_url)
                 ):
                     return True
             continue
@@ -277,6 +349,8 @@ def credential_exposed(text: str) -> bool:
         if RAW_CREDENTIAL_URL_PATTERN.search(line):
             return True
         if COMPACT_CREDENTIAL_URL_PATTERN.search(compact_line):
+            return True
+        if COMPACT_CREDENTIAL_URL_MISSING_AT_PATTERN.search(compact_line):
             return True
     return False
 
@@ -286,9 +360,15 @@ def main() -> int:
         text = Path(sys.argv[2]).read_text(encoding="utf-8", errors="replace")
         return 0 if credential_exposed(text) else 1
 
-    if len(sys.argv) != 4 or sys.argv[1] not in {"username", "prompt"}:
+    if len(sys.argv) != 4 or sys.argv[1] not in {
+        "username",
+        "prompt",
+        "url",
+        "repository",
+    }:
         print(
-            "Usage: ocr_evidence.py {username|prompt} EXPECTED_USERNAME OCR_TEXT_FILE\n"
+            "Usage: ocr_evidence.py "
+            "{username|prompt|url|repository} EXPECTED_USERNAME OCR_TEXT_FILE\n"
             "       ocr_evidence.py credential OCR_TEXT_FILE",
             file=sys.stderr,
         )
@@ -296,11 +376,14 @@ def main() -> int:
 
     mode, expected, source = sys.argv[1:]
     text = Path(source).read_text(encoding="utf-8", errors="replace")
-    matched = (
-        username_matches(expected, text)
-        if mode == "username"
-        else prompt_matches(expected, text)
-    )
+    if mode == "username":
+        matched = username_matches(expected, text)
+    elif mode == "prompt":
+        matched = prompt_matches(expected, text)
+    elif mode == "url":
+        matched = github_url_matches(expected, text)
+    else:
+        matched = repository_page_matches(expected, text)
     return 0 if matched else 1
 
 
