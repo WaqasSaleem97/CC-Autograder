@@ -104,15 +104,17 @@ fi
 normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
 
 # This list must match the 37 mandatory files in
-# CC_F26/Labs/Lab02/README.md. Bonus and exam-practice screenshots are not
+# DevOps_F26/Labs/Lab02/README.md. Bonus and exam-practice screenshots are not
 # included in the automated score.
 # Every line is: filename|required OCR expressions separated by ;;
-# The <GitHub username>@ubuntu identity check is applied to every screenshot.
+# Terminal screenshots require the registered <GitHub username>@ubuntu prompt.
+# GitHub web-interface evidence and the two explicitly portable setup steps do
+# not: those screens cannot reliably contain an Ubuntu terminal prompt.
 readarray -t criteria <<'EOF'
 git_installation.png|git;;(version|install)
-repo_private.png|cc[._[:space:]-]*lab[._[:space:]-]*0?2[._[:space:]-]*practice;;private
+repo_private.png|devops[._[:space:]-]*lab[._[:space:]-]*0?2[._[:space:]-]*practice;;private
 ssh_keygen.png|ssh-keygen;;ed25519
-github_sshkey.png|ssh;;key;;github
+github_sshkey.png|(ssh|authentication);;(key|fingerprint)
 ssh_clone.png|git[[:space:]]+clone;;git@github[.]com
 git_identity.png|git[[:space:]]+config;;user[._[:space:]-]*name;;user[._[:space:]-]*email
 git_config_list.png|git[[:space:]]+config;;user[._[:space:]-]*name;;user[._[:space:]-]*email
@@ -123,30 +125,58 @@ first_commit.png|initial commit;;README[.]md
 first_push.png|git[[:space:]]+push;;origin;;main
 status1.png|git[[:space:]]+status;;(untracked|modified)
 commit_notes.png|notes[.]txt;;commit
-bugfix_branch_gui.png|bugfix/user-auth-error
-bugfix_branch_local.png|bugfix/user-auth-error;;branch
-feature_db_branch.png|feature/db-connection;;git[[:space:]]+(checkout|switch);;git[[:space:]]+push
+bugfix_branch_gui.png|bugfix[ /_-]*user[ /_-]*auth[ /_-]*error
+bugfix_branch_local.png|bugfix[ /_-]*user[ /_-]*auth[ /_-]*error;;branch
+feature_db_branch.png|feature[ /_-]*db[ /_-]*connection;;git[[:space:]]+(checkout|switch);;git[[:space:]]+push
 branch_create.png|feature-1;;(checkout|switch)
 feature_commit.png|main[.]py;;new function;;commit
 merge.png|git[[:space:]]+merge;;feature-1
 push_branches.png|git[[:space:]]+push;;feature-1;;main
-pr_creation.png|pull request;;feature/db-connection;;main
-pr_merge.png|merged;;pull request
-branch_delete.png|deleted;;feature/db-connection
+pr_creation.png|pull[[:space:]]*requests?;;feature[ /_-]*db[ /_-]*connection;;main
+pr_merge.png|(merged|successfully merged);;(feature[ /_-]*db[ /_-]*connection|pull[[:space:]]*requests?|main)
+branch_delete.png|(deleted|successfully deleted|restore[[:space:]]+branch);;feature[ /_-]*db[ /_-]*connection
 branch_strategy.png|develop;;staging;;feature;;bugfix
 branch_merges.png|develop;;staging;;merge
 final_merge.png|staging;;main;;merge
-pr_create_details.png|pull[[:space:]]+request;;main
-pr_assigned_reviewer.png|reviewer;;pull request
-pr_request_changes.png|(changes requested|request changes)
+pr_create_details.png|pull[[:space:]]*request;;main
+pr_assigned_reviewer.png|(reviewers?|review requested|requested[[:space:]]+review)
+pr_request_changes.png|(changes requested|requested changes|request changes)
 pr_rejected.png|(closed|rejected)
-pr_updated_with_commits.png|commits;;pull request
-pr_merge_confirm.png|merge;;pull request
-pr_merged.png|merged;;pull request
-pr_branch_deleted.png|deleted;;branch
-remote_branch_deleted.png|deleted;;remote;;branch
-remote_branch_delete_cmd.png|git[[:space:]]+push;;origin;;--delete
+pr_updated_with_commits.png|commits?;;(pull[[:space:]]*requests?|conversation|files changed|main)
+pr_merge_confirm.png|(confirm[[:space:]]+merge|merge[[:space:]]+pull[[:space:]]+request|squash[[:space:]]+and[[:space:]]+merge|rebase[[:space:]]+and[[:space:]]+merge)
+pr_merged.png|(merged|successfully merged);;(pull[[:space:]]*requests?|conversation|commits?|files changed|main)
+pr_branch_deleted.png|(deleted|successfully deleted|restore[[:space:]]+branch);;(feature|bugfix|branch)
+remote_branch_deleted.png|(deleted|successfully deleted|restore[[:space:]]+branch);;(feature|bugfix|branch)
+remote_branch_delete_cmd.png|git[[:space:]]+push;;origin;;--delete[[:space:]]+[^[:space:]]+
 EOF
+
+# git_installation and ssh_keygen are platform-neutral setup evidence; the
+# remaining entries are GitHub website tasks. Task evidence is still mandatory
+# for every item below, but an Ubuntu prompt is not meaningful for them.
+readarray -t prompt_optional_screenshots <<'EOF'
+git_installation.png
+repo_private.png
+ssh_keygen.png
+github_sshkey.png
+bugfix_branch_gui.png
+pr_creation.png
+pr_merge.png
+branch_delete.png
+pr_create_details.png
+pr_assigned_reviewer.png
+pr_request_changes.png
+pr_rejected.png
+pr_updated_with_commits.png
+pr_merge_confirm.png
+pr_merged.png
+pr_branch_deleted.png
+remote_branch_deleted.png
+EOF
+
+declare -A prompt_optional
+for filename in "${prompt_optional_screenshots[@]}"; do
+  prompt_optional["$filename"]=1
+done
 
 required_screenshots=${#criteria[@]}
 if (( required_screenshots != 37 )); then
@@ -349,10 +379,12 @@ PY
     continue
   fi
 
-  if ! python3 "$grader_root/scripts/ocr_evidence.py" \
-    prompt "$normalized_username" "$ocr_file"; then
-    feedback+=("$filename: ${github_username}@ubuntu was not clearly detected (0)")
-    continue
+  if [[ -z "${prompt_optional[$filename]:-}" ]]; then
+    if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+      prompt "$normalized_username" "$ocr_file"; then
+      feedback+=("$filename: ${github_username}@ubuntu was not clearly detected (0)")
+      continue
+    fi
   fi
 
   evidence_ok=true

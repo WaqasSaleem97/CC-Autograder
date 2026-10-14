@@ -29,6 +29,22 @@ def load_criteria() -> dict[str, list[str]]:
 CRITERIA = load_criteria()
 
 
+def load_prompt_optional_screenshots() -> set[str]:
+    source = GRADER.read_text(encoding="utf-8")
+    match = re.search(
+        r"readarray -t prompt_optional_screenshots <<'EOF'\n"
+        r"(?P<filenames>.*?)\nEOF",
+        source,
+        flags=re.DOTALL,
+    )
+    if match is None:
+        raise AssertionError("Lab 2 prompt-optional block was not found")
+    return set(match.group("filenames").splitlines())
+
+
+PROMPT_OPTIONAL = load_prompt_optional_screenshots()
+
+
 def evidence_matches(filename: str, text: str) -> bool:
     return all(
         subprocess.run(
@@ -45,6 +61,32 @@ def evidence_matches(filename: str, text: str) -> bool:
 class Lab2CriteriaTests(unittest.TestCase):
     def test_required_file_count_stays_at_37(self):
         self.assertEqual(len(CRITERIA), 37)
+
+    def test_only_web_and_portable_tasks_skip_the_ubuntu_prompt(self):
+        self.assertEqual(
+            PROMPT_OPTIONAL,
+            {
+                "git_installation.png",
+                "repo_private.png",
+                "ssh_keygen.png",
+                "github_sshkey.png",
+                "bugfix_branch_gui.png",
+                "pr_creation.png",
+                "pr_merge.png",
+                "branch_delete.png",
+                "pr_create_details.png",
+                "pr_assigned_reviewer.png",
+                "pr_request_changes.png",
+                "pr_rejected.png",
+                "pr_updated_with_commits.png",
+                "pr_merge_confirm.png",
+                "pr_merged.png",
+                "pr_branch_deleted.png",
+                "remote_branch_deleted.png",
+            },
+        )
+        self.assertNotIn("ssh_clone.png", PROMPT_OPTIONAL)
+        self.assertNotIn("remote_branch_delete_cmd.png", PROMPT_OPTIONAL)
 
     def test_private_repository_requires_the_assigned_repository_name(self):
         self.assertTrue(
@@ -130,6 +172,26 @@ Adds retry logic and clearer errors.
             )
         )
 
+    def test_github_ui_states_do_not_require_unrelated_page_words(self):
+        valid_samples = {
+            "github_sshkey.png": "SSH and GPG keys Authentication key SHA256:abc",
+            "pr_assigned_reviewer.png": "Reviewers Request up to 15 reviewers student",
+            "pr_merge_confirm.png": "Confirm merge",
+            "pr_merged.png": "Merged 2 commits into main",
+            "pr_branch_deleted.png": "deleted the feature/code-review branch Restore branch",
+            "remote_branch_deleted.png": "feature/practice-reject Deleted now",
+        }
+        for filename, text in valid_samples.items():
+            with self.subTest(filename=filename):
+                self.assertTrue(evidence_matches(filename, text))
+
+        self.assertFalse(
+            evidence_matches(
+                "remote_branch_deleted.png",
+                "feature/practice-reject Updated now",
+            )
+        )
+
     def test_remote_delete_command_does_not_require_literal_branch_word(self):
         valid_command = """\
 student@ubuntu:~/CC_Lab2_Practice$ git push origin --delete feature/login
@@ -143,6 +205,12 @@ To github.com:student/CC_Lab2_Practice.git
             evidence_matches(
                 "remote_branch_delete_cmd.png",
                 "git push origin feature/login",
+            )
+        )
+        self.assertFalse(
+            evidence_matches(
+                "remote_branch_delete_cmd.png",
+                "git push origin --delete",
             )
         )
 
