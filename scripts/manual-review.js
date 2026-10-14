@@ -27,7 +27,7 @@ export function isCleanFullCreditReference(record = {}) {
     && Number.isFinite(maximum)
     && maximum > 0
     && Math.abs(automatic - maximum) < 0.000001
-    && ["Automatic pass", "Passed quality-control sample"].includes(record.auditCategory)
+    && record.auditCategory === "Automatic pass"
     && (!Array.isArray(record.duplicateReferences) || record.duplicateReferences.length === 0);
 }
 

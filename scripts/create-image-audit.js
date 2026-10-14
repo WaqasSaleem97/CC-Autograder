@@ -313,17 +313,8 @@ for (const record of records) {
     record.auditReason = "The image exists but could not be connected to an automatic grading check.";
   } else {
     record.auditCategory = "Automatic pass";
-    record.auditReason = "The grader passed this screenshot; it is eligible for quality-control sampling.";
+    record.auditReason = "The grader passed this screenshot; it is excluded from risk-based review and remains available as an expected-image reference.";
   }
-}
-
-const automaticPasses = records
-  .filter((record) => record.auditCategory === "Automatic pass")
-  .sort((left, right) => `${left.hash}:${left.studentKey}:${left.expectedName}`.localeCompare(`${right.hash}:${right.studentKey}:${right.expectedName}`));
-const sampleCount = automaticPasses.length ? Math.max(1, Math.ceil(automaticPasses.length * 0.10)) : 0;
-for (const record of automaticPasses.slice(0, sampleCount)) {
-  record.auditCategory = "Passed quality-control sample";
-  record.auditReason = "This automatic pass is included in the deterministic 10% quality-control sample to help detect false positives.";
 }
 
 const selected = scope === "all"
@@ -352,7 +343,6 @@ const categoryOrder = [
   "Possible false positive",
   "Unmatched evidence",
   "Missing expected screenshot",
-  "Passed quality-control sample",
   "Automatic pass"
 ];
 selected.sort((left, right) =>
@@ -452,7 +442,7 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Image audit · ${escapeHtml(config.assessment)}</title>
 <style>
-:root{color-scheme:light;--border:#d0d7de;--muted:#57606a;--bg:#f6f8fa;--blue:#0969da;--red:#cf222e;--amber:#9a6700;--green:#1a7f37}*{box-sizing:border-box}body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1f2328;background:var(--bg)}main{max-width:1500px;margin:auto;padding:24px}.hero,.toolbar,.card{background:white;border:1px solid var(--border);border-radius:10px}.hero{padding:22px;margin-bottom:16px}.hero h1{margin:0 0 6px}.warning{border-left:4px solid var(--amber);padding:10px 12px;background:#fff8c5;margin:14px 0}.stats{display:flex;flex-wrap:wrap;gap:10px}.stat{min-width:145px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}.stat strong{display:block;font-size:22px}.toolbar{position:sticky;top:0;z-index:3;display:flex;gap:10px;flex-wrap:wrap;padding:12px;margin-bottom:16px}.toolbar input,.toolbar select,.toolbar button,textarea{font:inherit}.toolbar input,.toolbar select{padding:8px;border:1px solid var(--border);border-radius:6px}.toolbar input{flex:1;min-width:240px}.toolbar button{color:white;background:var(--blue);border:0;border-radius:6px;padding:8px 14px;cursor:pointer}.card{padding:16px;margin-bottom:16px}.card>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:14px}.card h2,.card p{margin:0}.badge{display:inline-block;padding:4px 8px;border-radius:20px;font-size:12px;font-weight:600;background:#ddf4ff;color:#0969da}.category-possible-false-negative{background:#ffebe9;color:var(--red)}.category-possible-false-positive{background:#fff8c5;color:var(--amber)}.category-passed-quality-control-sample{background:#dafbe1;color:var(--green)}.category-missing-expected-screenshot{background:#fbefff;color:#8250df}.card-grid{display:grid;grid-template-columns:minmax(320px,48%) 1fr;gap:18px}.preview{min-height:220px;background:#24292f;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:auto}.preview img{display:block;max-width:100%;max-height:720px;object-fit:contain}.missing-preview{color:white}.evidence dl{display:grid;grid-template-columns:145px 1fr;gap:7px 10px;margin-top:0}.evidence dt{font-weight:600}.evidence dd{margin:0;min-width:0}.hash{overflow-wrap:anywhere}details{margin:12px 0}pre{max-height:320px;overflow:auto;white-space:pre-wrap;background:#f6f8fa;border:1px solid var(--border);padding:10px;border-radius:6px}fieldset{border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-wrap:wrap;gap:12px}fieldset label{white-space:nowrap}.note-label{width:100%;white-space:normal}textarea{display:block;width:100%;margin-top:5px;padding:7px;border:1px solid var(--border);border-radius:6px}.muted{color:var(--muted)}.empty{padding:40px;text-align:center;background:white;border:1px solid var(--border);border-radius:10px}@media(max-width:800px){main{padding:10px}.card-grid{grid-template-columns:1fr}.evidence dl{grid-template-columns:1fr}.evidence dt{margin-top:5px}}
+:root{color-scheme:light;--border:#d0d7de;--muted:#57606a;--bg:#f6f8fa;--blue:#0969da;--red:#cf222e;--amber:#9a6700}*{box-sizing:border-box}body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1f2328;background:var(--bg)}main{max-width:1500px;margin:auto;padding:24px}.hero,.toolbar,.card{background:white;border:1px solid var(--border);border-radius:10px}.hero{padding:22px;margin-bottom:16px}.hero h1{margin:0 0 6px}.warning{border-left:4px solid var(--amber);padding:10px 12px;background:#fff8c5;margin:14px 0}.stats{display:flex;flex-wrap:wrap;gap:10px}.stat{min-width:145px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}.stat strong{display:block;font-size:22px}.toolbar{position:sticky;top:0;z-index:3;display:flex;gap:10px;flex-wrap:wrap;padding:12px;margin-bottom:16px}.toolbar input,.toolbar select,.toolbar button,textarea{font:inherit}.toolbar input,.toolbar select{padding:8px;border:1px solid var(--border);border-radius:6px}.toolbar input{flex:1;min-width:240px}.toolbar button{color:white;background:var(--blue);border:0;border-radius:6px;padding:8px 14px;cursor:pointer}.card{padding:16px;margin-bottom:16px}.card>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:14px}.card h2,.card p{margin:0}.badge{display:inline-block;padding:4px 8px;border-radius:20px;font-size:12px;font-weight:600;background:#ddf4ff;color:#0969da}.category-possible-false-negative{background:#ffebe9;color:var(--red)}.category-possible-false-positive{background:#fff8c5;color:var(--amber)}.category-missing-expected-screenshot{background:#fbefff;color:#8250df}.card-grid{display:grid;grid-template-columns:minmax(320px,48%) 1fr;gap:18px}.preview{min-height:220px;background:#24292f;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:auto}.preview img{display:block;max-width:100%;max-height:720px;object-fit:contain}.missing-preview{color:white}.evidence dl{display:grid;grid-template-columns:145px 1fr;gap:7px 10px;margin-top:0}.evidence dt{font-weight:600}.evidence dd{margin:0;min-width:0}.hash{overflow-wrap:anywhere}details{margin:12px 0}pre{max-height:320px;overflow:auto;white-space:pre-wrap;background:#f6f8fa;border:1px solid var(--border);padding:10px;border-radius:6px}fieldset{border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-wrap:wrap;gap:12px}fieldset label{white-space:nowrap}.note-label{width:100%;white-space:normal}textarea{display:block;width:100%;margin-top:5px;padding:7px;border:1px solid var(--border);border-radius:6px}.muted{color:var(--muted)}.empty{padding:40px;text-align:center;background:white;border:1px solid var(--border);border-radius:10px}@media(max-width:800px){main{padding:10px}.card-grid{grid-template-columns:1fr}.evidence dl{grid-template-columns:1fr}.evidence dt{margin-top:5px}}
 </style>
 </head>
 <body><main>
@@ -460,13 +450,12 @@ const html = `<!doctype html>
   <h1>Manual image-audit report</h1>
   <p><strong>${escapeHtml(config.courseCode)} · ${escapeHtml(config.category)} · ${escapeHtml(config.assessment)}</strong> · ${escapeHtml(config.submissionPath)} · generated ${escapeHtml(createdAt)}</p>
   <div class="warning"><strong>This report does not change marks automatically.</strong> Inspect the actual image and the assignment criteria before overriding a result. “Accept evidence” is normally used for a false negative; “Reject evidence” is normally used for a false positive.</div>
-  <p>Scope: <strong>${scope === "all" ? "all screenshots" : "risk-based cases plus a deterministic 10% sample of clean automatic passes"}</strong>. OCR shown here is diagnostic only, and likely credentials are redacted from the displayed OCR text.</p>
+  <p>Scope: <strong>${scope === "all" ? "all screenshots" : "risk-based cases only; clean automatic passes are excluded"}</strong>. OCR shown here is diagnostic only, and likely credentials are redacted from the displayed OCR text.</p>
   <div class="stats">
     <div class="stat"><strong>${results.length}</strong>students graded</div>
     <div class="stat"><strong>${selected.length}</strong>audit entries</div>
     <div class="stat"><strong>${count("Possible false negative")}</strong>possible false negatives</div>
     <div class="stat"><strong>${count("Possible false positive")}</strong>possible false positives</div>
-    <div class="stat"><strong>${count("Passed quality-control sample")}</strong>passed samples</div>
   </div>
 </section>
 <section class="toolbar">
@@ -496,11 +485,10 @@ writeFileSync(path.join(reportRoot, "index.html"), html);
 const summaryLines = [
   "## Manual image audit",
   "",
-  `- Scope: ${scope === "all" ? "all screenshots" : "risk-based cases and a deterministic 10% pass sample"}`,
+  `- Scope: ${scope === "all" ? "all screenshots" : "risk-based cases only; clean automatic passes excluded"}`,
   `- Audit entries: ${selected.length}`,
   `- Possible false negatives: ${count("Possible false negative")}`,
   `- Possible false positives: ${count("Possible false positive")}`,
-  `- Passed quality-control samples: ${count("Passed quality-control sample")}`,
   `- Portal review decisions required: ${reviewItems.length}`,
   `- Expected-image pools prepared: ${reviewCriteria.length} (${reviewCriteria.reduce((total, criterion) => total + criterion.reference_candidates.length, 0)} clean full-credit or instructor reference image(s))`,
   "- Download the `image-audit-report` artifact and open `index.html` to review the evidence.",

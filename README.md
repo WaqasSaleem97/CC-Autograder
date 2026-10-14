@@ -54,10 +54,11 @@ criteria remain inside the corresponding `tests/<course>/<assessment>/test.sh`.
 
 Choose one `image_audit_scope` when starting a grading run:
 
-- `Risk-based sample` includes every existing screenshot that failed, received
-  partial credit, or requires review; unmatched evidence; missing expected
-  screenshots; exact duplicate passes; and a deterministic 10% sample of the
-  remaining automatic passes. This is the recommended normal audit.
+- `Risk-based sample` includes only screenshots with an identified risk:
+  failures, partial credit, manual-review results, unmatched evidence, missing
+  expected screenshots, and exact duplicate passes. Clean automatic passes are
+  excluded from the audit report and remain available only as expected-image
+  references. This is the recommended normal audit.
 - `All screenshots` includes every submitted screenshot and is suitable for a
   complete pre-publication audit.
 - `Off` skips report creation.

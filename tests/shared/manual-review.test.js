@@ -78,7 +78,7 @@ test("every clean full-credit image becomes a selected reference candidate", () 
   };
   const records = [
     { ...base, enrollmentId: "student-01__cc", registration: "2024-BSE-01", username: "student01", hash: "a".repeat(64), submittedPath: "screenshots/task2_remotes.png" },
-    { ...base, enrollmentId: "student-02__cc", registration: "2024-BSE-02", username: "student02", hash: "b".repeat(64), submittedPath: "screenshots/task2_remotes.png", auditCategory: "Passed quality-control sample" },
+    { ...base, enrollmentId: "student-02__cc", registration: "2024-BSE-02", username: "student02", hash: "b".repeat(64), submittedPath: "screenshots/task2_remotes.png" },
     { ...base, enrollmentId: "student-03__cc", registration: "2024-BSE-03", username: "student03", hash: "c".repeat(64), duplicateReferences: ["2024-BSE-04: task2_remotes.png"], auditCategory: "Possible false positive" },
     { ...base, enrollmentId: "student-04__cc", registration: "2024-BSE-04", username: "student04", hash: "d".repeat(64), automaticStatus: "Failed", automaticPoints: 0, auditCategory: "Possible false negative" }
   ];
