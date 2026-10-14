@@ -1,0 +1,68 @@
+name: Finalize reviewed grading results
+
+on:
+  workflow_dispatch:
+    inputs:
+      grading_run_id:
+        description: "Original grading workflow run ID shown in the portal"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finalize-reviewed-${{ inputs.grading_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    name: Publish reviewed marks and email students
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Validate decisions and prepare final results
+        id: prepare
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+        run: node scripts/review-workflow.js prepare
+      - name: Publish final marks to the portal
+        if: ${{ steps.prepare.outputs.update_firestore == 'true' }}
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: node scripts/update-firestore.js
+      - name: Email final grading tables through Gmail
+        if: ${{ steps.prepare.outputs.send_email_results == 'true' }}
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_FROM_NAME: ${{ vars.EMAIL_FROM_NAME }}
+          EMAIL_REPLY_TO: ${{ vars.EMAIL_REPLY_TO }}
+        run: node scripts/email-results.js
+      - name: Mark the review as finalized
+        if: ${{ success() }}
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+          MARKS_PUBLISHED: ${{ steps.prepare.outputs.update_firestore }}
+          EMAIL_RESULTS_SENT: ${{ steps.prepare.outputs.send_email_results }}
+        run: node scripts/review-workflow.js complete
+      - name: Record a recoverable finalization failure
+        if: ${{ failure() }}
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+        run: node scripts/review-workflow.js fail

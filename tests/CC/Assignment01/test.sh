@@ -541,12 +541,14 @@ done
 full_credit=0
 partial_credit=0
 screenshot_credit_units=0
+declare -A screenshot_credit_by_file
 review_count=0
 github_supported_checks=0
 feedback=("${artifact_feedback[@]}")
 
 for rule in "${criteria[@]}"; do
   filename="${rule%%|*}"
+  screenshot_credit_by_file["$filename"]=0
   remainder="${rule#*|}"
   identity_flag="${remainder%%|*}"
   evidence_groups="${remainder#*|}"
@@ -786,6 +788,7 @@ PY
   fi
 
   screenshot_credit_units=$((screenshot_credit_units + credit_units))
+  screenshot_credit_by_file["$filename"]="$credit_units"
   if (( credit_units == 1000 )); then
     full_credit=$((full_credit + 1))
     feedback+=("$filename: passed")
@@ -836,10 +839,42 @@ PY
 )"
 
 summary="Earned $screenshot_equivalent/$required screenshot-check equivalents ($full_credit full, $partial_credit partial) and passed $artifact_passed/$artifact_required required assignment-file checks. Public GitHub verification repaired $github_supported_checks OCR indicator(s). $(IFS='; '; echo "${feedback[*]}")"
+review_items_tsv="$ocr_dir/review-items.tsv"
+: > "$review_items_tsv"
+criterion_order=0
+for rule in "${criteria[@]}"; do
+  filename="${rule%%|*}"
+  printf '%s\t%s\t%s\t%s\n' \
+    "$filename" \
+    "$criterion_order" \
+    "${screenshot_credit_by_file[$filename]:-0}" \
+    "${evidence_labels[$filename]:-}" >> "$review_items_tsv"
+  criterion_order=$((criterion_order + 1))
+done
+
 node -e '
+  const fs = require("node:fs");
+  const total = Number(process.argv[4]);
+  const required = Number(process.argv[5]);
+  const reviewItems = fs.readFileSync(process.argv[6], "utf8").trim().split(/\r?\n/).filter(Boolean).map((line) => {
+    const [filename, order, units, labels = ""] = line.split("\t");
+    const maximum = total * 0.90 / required;
+    return {
+      criterion_id: filename.replace(/\.[^.]+$/, ""),
+      criterion_order: Number(order),
+      criterion_label: filename.replace(/\.[^.]+$/, "").replaceAll("_", " "),
+      expected_filename: filename,
+      expected_evidence: labels.split(";;").map((value) => value.trim()).filter(Boolean),
+      automatic_points: Number((maximum * Number(units) / 1000).toFixed(6)),
+      max_points: Number(maximum.toFixed(6))
+    };
+  });
+  const reviewBasePoints = total * 0.10 * Number(process.argv[7]) / Number(process.argv[8]);
   console.log(JSON.stringify({
     score: Number(process.argv[1]),
     feedback: process.argv[2],
-    review_count: Number(process.argv[3])
+    review_count: Number(process.argv[3]),
+    review_items: reviewItems,
+    review_base_points: Number(reviewBasePoints.toFixed(6))
   }))
-' "$score" "$summary" "$review_count"
+' "$score" "$summary" "$review_count" "$total_marks" "$required" "$review_items_tsv" "$artifact_passed" "$artifact_required"

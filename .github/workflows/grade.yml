@@ -94,6 +94,11 @@ on:
         description: "Comma-separated numbers; required for Registration numbers"
         required: false
         type: string
+      manual_review:
+        description: "Pause before publishing so suspicious screenshots can be reviewed in the portal"
+        required: true
+        default: true
+        type: boolean
       image_audit_scope:
         description: "Create a manual image-audit report for any assessment type"
         required: true
@@ -258,14 +263,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.STUDENT_REPOS_TOKEN }}
           IMAGE_AUDIT_SCOPE: ${{ inputs.image_audit_scope }}
-        run: node scripts/grade-submissions.js --students-file results/students.json
+          MANUAL_REVIEW: ${{ inputs.manual_review }}
+        run: |
+          if [[ "$MANUAL_REVIEW" == "true" ]]; then
+            IMAGE_AUDIT_SCOPE="Risk-based sample"
+            export IMAGE_AUDIT_SCOPE
+          fi
+          node scripts/grade-submissions.js --students-file results/students.json
       - name: Show results
         run: node scripts/show-results.js
       - name: Create manual image-audit report
-        if: ${{ inputs.image_audit_scope != 'Off' }}
+        if: ${{ inputs.manual_review || inputs.image_audit_scope != 'Off' }}
         env:
           IMAGE_AUDIT_SCOPE: ${{ inputs.image_audit_scope }}
-        run: node scripts/create-image-audit.js --scope "$IMAGE_AUDIT_SCOPE"
+          MANUAL_REVIEW: ${{ inputs.manual_review }}
+        run: |
+          if [[ "$MANUAL_REVIEW" == "true" ]]; then
+            IMAGE_AUDIT_SCOPE="Risk-based sample"
+          fi
+          node scripts/create-image-audit.js --scope "$IMAGE_AUDIT_SCOPE"
       - name: Upload grading results
         uses: actions/upload-artifact@v4
         with:
@@ -274,7 +290,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload manual image-audit report
-        if: ${{ inputs.image_audit_scope != 'Off' }}
+        if: ${{ inputs.manual_review || inputs.image_audit_scope != 'Off' }}
         uses: actions/upload-artifact@v4
         with:
           name: image-audit-report
@@ -282,10 +298,57 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  stage-review:
+    name: Stage suspicious evidence for portal review
+    needs: [select-students, grade]
+    if: ${{ inputs.manual_review }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Download trusted students
+        uses: actions/download-artifact@v4
+        with:
+          name: selected-students
+          path: results
+      - name: Download provisional grading results
+        uses: actions/download-artifact@v4
+        with:
+          name: grading-results
+          path: results
+      - name: Download suspicious-image queue
+        uses: actions/download-artifact@v4
+        with:
+          name: image-audit-report
+          path: results/image-audit
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Stage the review and end this grading run
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          COURSE_ID: ${{ inputs.course_id }}
+          CATEGORY: ${{ inputs.category }}
+          ASSESSMENT_NAME: ${{ inputs.assessment_name }}
+          REPOSITORY_NAME: ${{ inputs.repository_name }}
+          SUBMISSION_PATH: ${{ inputs.submission_path }}
+          TOTAL_MARKS: ${{ inputs.total_marks }}
+          BRANCH: ${{ inputs.branch }}
+          SECTION: ${{ inputs.section }}
+          UPDATE_FIRESTORE: ${{ inputs.update_firestore }}
+          SEND_EMAIL_RESULTS: ${{ inputs.send_email_results }}
+        run: node scripts/review-workflow.js stage
+
   update-firestore:
     name: Publish trusted grading results
     needs: grade
-    if: ${{ inputs.update_firestore || inputs.send_email_results }}
+    if: ${{ !inputs.manual_review && (inputs.update_firestore || inputs.send_email_results) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
+import { applicationDefault, initializeApp } from "firebase-admin/app";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { parseFeedback, statusColors } from "./feedback-report.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,6 +15,14 @@ const gmailUser = String(process.env.GMAIL_USER || "").trim();
 const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
 const fromName = cleanHeader(process.env.EMAIL_FROM_NAME || "CC Autograder");
 const replyTo = String(process.env.EMAIL_REPLY_TO || "").trim();
+const gradingRunId = String(process.env.GRADING_RUN_ID || "").trim();
+const firebaseProjectId = String(process.env.FIREBASE_PROJECT_ID || "").trim();
+let reviewDb = null;
+if (gradingRunId) {
+  if (!/^\d{1,30}$/.test(gradingRunId) || !firebaseProjectId) throw new Error("GRADING_RUN_ID and FIREBASE_PROJECT_ID are required for idempotent reviewed email delivery.");
+  initializeApp({ credential: applicationDefault(), projectId: firebaseProjectId });
+  reviewDb = getFirestore();
+}
 
 if (!Array.isArray(results) || !results.length) throw new Error("No grading results found.");
 if (!Array.isArray(students) || !students.length) throw new Error("No trusted students found.");
@@ -24,6 +34,7 @@ if (replyTo && !isEmail(replyTo)) throw new Error("EMAIL_REPLY_TO must be a vali
 const trusted = new Map(students.map((student) => [String(student.github_username).trim().toLowerCase(), student]));
 const messages = [];
 let reviewSkipped = 0;
+let alreadySent = 0;
 
 for (const result of results) {
   const student = validateResult(result, trusted, config);
@@ -39,11 +50,24 @@ for (const result of results) {
     continue;
   }
 
-  messages.push(buildMessage({ config, result, student, recipient, gmailUser, fromName, replyTo }));
+  const stagedResultRef = reviewDb
+    ? reviewDb.collection("grading_runs").doc(gradingRunId).collection("results").doc(result.enrollment_id || String(result.enrollment_path || "").split("/").at(-1))
+    : null;
+  if (stagedResultRef && (await stagedResultRef.get()).data()?.email_sent_at) {
+    console.log(`Skipping ${safeLog(student.registration_number)}: this reviewed result was already emailed.`);
+    alreadySent++;
+    continue;
+  }
+
+  messages.push({ ...buildMessage({ config, result, student, recipient, gmailUser, fromName, replyTo }), stagedResultRef });
 }
 
 if (!messages.length && reviewSkipped > 0) {
   console.log(`Email delivery skipped: ${reviewSkipped} provisional result(s) require review.`);
+  process.exit(0);
+}
+if (!messages.length && alreadySent > 0) {
+  console.log(`Email delivery already complete: ${alreadySent} reviewed result(s) were previously sent.`);
   process.exit(0);
 }
 if (!messages.length) throw new Error("No students with valid email addresses were available.");
@@ -72,6 +96,7 @@ const failures = [];
 for (const message of messages) {
   try {
     await transporter.sendMail(message.mail);
+    if (message.stagedResultRef) await message.stagedResultRef.update({ email_sent_at: FieldValue.serverTimestamp() });
     console.log(`Sent ${safeLog(config.category)}/${safeLog(config.assessment)} result to ${safeLog(message.registrationNumber)}.`);
   } catch (error) {
     failures.push(message.registrationNumber);

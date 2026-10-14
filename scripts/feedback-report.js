@@ -1,6 +1,6 @@
 export function parseFeedback(feedback) {
   const value = String(feedback || "").trim();
-  const summaryMatch = value.match(/^(Passed\s+\d+\/\d+[^.]*\.)\s*(.*)$/s);
+  const summaryMatch = value.match(/^((?:Passed\s+\d+\/\d+[^.]*|Final score\s+[0-9.]+\/[0-9.]+\s+after manual review)\.)\s*(.*)$/s);
   const summary = summaryMatch ? summaryMatch[1] : "Detailed grading feedback is shown below.";
   const details = summaryMatch ? summaryMatch[2] : value;
   const checks = details.split(";").map((entry) => entry.trim()).filter(Boolean).map((entry) => {
@@ -8,7 +8,7 @@ export function parseFeedback(feedback) {
     if (separator < 1) return { name: "Submission", status: "Failed", details: stripZero(entry) };
     const name = entry.slice(0, separator).trim();
     const message = entry.slice(separator + 1).trim();
-    if (/^passed$/i.test(message)) return { name, status: "Passed", details: "Required evidence detected." };
+    if (/^passed(?: after manual review)?$/i.test(message)) return { name, status: "Passed", details: /after manual review/i.test(message) ? "Evidence accepted during manual review." : "Required evidence detected." };
     const review = message.match(/^manual review (?:recommended|required)\s*-\s*(.*?)\s*\(provisional credit\)$/i);
     if (review) return { name, status: "Manual review", details: sentence(review[1]) };
     if (/^missing\s*\(0\)$/i.test(message)) return { name, status: "Missing", details: "Required file was not found." };

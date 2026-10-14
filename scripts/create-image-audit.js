@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import {
   appendFileSync,
   copyFileSync,
@@ -125,6 +126,82 @@ function findOcrText(studentKey, filename) {
   return match ? redactPotentialCredentials(readFileSync(path.join(directory, match), "utf8")) : "";
 }
 
+function inferredCheckCount(result) {
+  const match = String(result.feedback || "").match(/(?:Passed|Earned)\s+[0-9.]+\/([0-9]+)/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function defaultExpectedEvidence(filename) {
+  return [
+    `Submit the required screenshot named ${filename} (capitalization and repeated image extensions are ignored).`,
+    "The image must clearly show the task-specific command or page and its successful result.",
+    "Use the instructor reference image when one is available; otherwise compare against the written requirement shown here."
+  ];
+}
+
+const repositoryCache = new Map();
+function repositoryMetadata(username) {
+  if (repositoryCache.has(username)) return repositoryCache.get(username);
+  const repository = path.join(root, "work/submissions", username, config.repositoryName);
+  try {
+    const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
+    const tree = execFileSync("git", ["ls-tree", "-r", "-z", "HEAD"], { cwd: repository, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    const pathsByBlob = new Map();
+    for (const entry of tree.split("\0").filter(Boolean)) {
+      const match = entry.match(/^\d+\s+blob\s+([0-9a-f]+)\t([\s\S]+)$/);
+      if (!match) continue;
+      if (!pathsByBlob.has(match[1])) pathsByBlob.set(match[1], []);
+      pathsByBlob.get(match[1]).push(match[2]);
+    }
+    const value = { repository, commit, pathsByBlob };
+    repositoryCache.set(username, value);
+    return value;
+  } catch {
+    const value = null;
+    repositoryCache.set(username, value);
+    return value;
+  }
+}
+
+function rawStudentImageUrl(record) {
+  if (!record.source) return "";
+  const metadata = repositoryMetadata(record.username);
+  if (!metadata) return "";
+  try {
+    const blob = execFileSync("git", ["hash-object", record.source], { cwd: metadata.repository, encoding: "utf8" }).trim();
+    const expectedCanonical = canonicalScreenshotName(record.expectedName);
+    const submissionPrefix = `${config.submissionPath.toLowerCase()}/`;
+    const candidates = [...(metadata.pathsByBlob.get(blob) || [])].sort((left, right) => {
+      const score = (candidate) =>
+        (canonicalScreenshotName(path.posix.basename(candidate)) === expectedCanonical ? 4 : 0)
+        + (candidate.toLowerCase().startsWith(submissionPrefix) ? 2 : 0)
+        + (candidate.toLowerCase().includes("/screenshots/") ? 1 : 0);
+      return score(right) - score(left) || left.localeCompare(right);
+    });
+    if (!candidates.length) return "";
+    const encodedPath = candidates[0].split("/").map(encodeURIComponent).join("/");
+    return `https://raw.githubusercontent.com/${encodeURIComponent(record.username)}/${encodeURIComponent(config.repositoryName)}/${metadata.commit}/${encodedPath}`;
+  } catch {
+    return "";
+  }
+}
+
+function referenceImageUrl(expectedName) {
+  const directory = path.join(root, path.dirname(config.testScript), "expected");
+  if (!existsSync(directory)) return "";
+  const expectedCanonical = canonicalScreenshotName(expectedName);
+  const match = walkImages(directory).find((file) => canonicalScreenshotName(path.basename(file)) === expectedCanonical);
+  if (!match) return "";
+  try {
+    const repository = String(process.env.GITHUB_REPOSITORY || "WaqasSaleem97/CC-Autograder");
+    const commit = String(process.env.GITHUB_SHA || execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim());
+    const relative = path.relative(root, match).split(path.sep).map(encodeURIComponent).join("/");
+    return `https://raw.githubusercontent.com/${repository.split("/").map(encodeURIComponent).join("/")}/${commit}/${relative}`;
+  } catch {
+    return "";
+  }
+}
+
 const records = [];
 for (const result of results) {
   const username = String(result.github_username || "").trim();
@@ -139,6 +216,8 @@ for (const result of results) {
   );
   const checks = feedbackChecks(result.feedback);
   const expected = new Map(checks.map((check) => [check.canonical, check]));
+  const structuredItems = new Map((Array.isArray(result.review_items) ? result.review_items : []).map((item) => [canonicalScreenshotName(item.expected_filename), item]));
+  const checkCount = inferredCheckCount(result) || checks.length;
   const actualImages = walkImages(submission).filter((file) => {
     const canonical = canonicalScreenshotName(path.basename(file));
     const relativeParts = path.relative(submission, file).split(path.sep).map((part) => part.toLowerCase());
@@ -149,6 +228,7 @@ for (const result of results) {
   for (const source of actualImages) {
     const canonical = canonicalScreenshotName(path.basename(source));
     const check = expected.get(canonical);
+    const structured = structuredItems.get(canonical);
     if (check) matched.add(canonical);
     records.push({
       registration,
@@ -160,6 +240,18 @@ for (const result of results) {
       submittedPath: path.relative(submission, source).split(path.sep).join("/"),
       automaticStatus: check?.status || "Unmatched",
       automaticReason: check?.message || "Image was found, but no image check in the grader feedback matched its filename.",
+      enrollmentId: result.enrollment_id || String(result.enrollment_path || "").split("/").at(-1) || result.firebase_uid,
+      firebaseUid: result.firebase_uid,
+      criterionId: String(structured?.criterion_id || canonical || path.basename(source)),
+      criterionOrder: Number.isInteger(Number(structured?.criterion_order)) ? Number(structured.criterion_order) : Math.max(0, checks.findIndex((item) => item.canonical === canonical)),
+      criterionLabel: String(structured?.criterion_label || path.basename(check?.name || source).replace(/\.[^.]+$/, "").replaceAll("_", " ")),
+      expectedEvidence: structured?.expected_evidence?.length ? structured.expected_evidence : defaultExpectedEvidence(check?.name || path.basename(source)),
+      automaticPoints: Number.isFinite(Number(structured?.automatic_points))
+        ? Number(structured.automatic_points)
+        : (["Passed", "Manual review"].includes(check?.status) && checkCount ? Number(result.total) / checkCount : 0),
+      maxPoints: Number.isFinite(Number(structured?.max_points))
+        ? Number(structured.max_points)
+        : (checkCount ? Number(result.total) / checkCount : 0),
       hash: sha256(source),
       ocr: findOcrText(studentKey, check?.name || path.basename(source))
     });
@@ -177,6 +269,14 @@ for (const result of results) {
       submittedPath: "Not found",
       automaticStatus: check.status,
       automaticReason: check.message,
+      enrollmentId: result.enrollment_id || String(result.enrollment_path || "").split("/").at(-1) || result.firebase_uid,
+      firebaseUid: result.firebase_uid,
+      criterionId: String(structuredItems.get(check.canonical)?.criterion_id || check.canonical),
+      criterionOrder: Number.isInteger(Number(structuredItems.get(check.canonical)?.criterion_order)) ? Number(structuredItems.get(check.canonical).criterion_order) : Math.max(0, checks.findIndex((item) => item.canonical === check.canonical)),
+      criterionLabel: String(structuredItems.get(check.canonical)?.criterion_label || check.name.replace(/\.[^.]+$/, "").replaceAll("_", " ")),
+      expectedEvidence: structuredItems.get(check.canonical)?.expected_evidence?.length ? structuredItems.get(check.canonical).expected_evidence : defaultExpectedEvidence(check.name),
+      automaticPoints: Number(structuredItems.get(check.canonical)?.automatic_points || 0),
+      maxPoints: Number(structuredItems.get(check.canonical)?.max_points || (checkCount ? Number(result.total) / checkCount : 0)),
       hash: "",
       ocr: ""
     });
@@ -259,6 +359,37 @@ selected.sort((left, right) =>
   || left.registration.localeCompare(right.registration)
   || left.expectedName.localeCompare(right.expectedName)
 );
+
+const reviewItems = selected
+  .filter((record) => record.source && ["Possible false negative", "Possible false positive"].includes(record.auditCategory))
+  .map((record) => ({
+    id: createHash("sha256").update(`${record.enrollmentId}|${record.criterionId}|${record.hash}`).digest("hex").slice(0, 32),
+    enrollment_id: record.enrollmentId,
+    firebase_uid: record.firebaseUid,
+    registration_number: record.registration,
+    github_username: record.username,
+    criterion_id: record.criterionId,
+    criterion_order: record.criterionOrder,
+    criterion_label: record.criterionLabel,
+    expected_filename: record.expectedName,
+    expected_evidence: record.expectedEvidence,
+    reference_image_url: referenceImageUrl(record.expectedName),
+    student_image_url: rawStudentImageUrl(record),
+    submitted_path: record.submittedPath,
+    audit_category: record.auditCategory,
+    audit_reason: record.auditReason,
+    automatic_status: record.automaticStatus,
+    automatic_reason: record.automaticReason,
+    automatic_points: Number(record.automaticPoints.toFixed(6)),
+    max_points: Number(record.maxPoints.toFixed(6)),
+    duplicate_references: record.duplicateReferences,
+    ocr_text: record.ocr,
+    image_sha256: record.hash,
+    decision: "pending",
+    reviewer_note: ""
+  }));
+
+writeFileSync(path.join(reportRoot, "review-items.json"), `${JSON.stringify(reviewItems, null, 2)}\n`);
 
 const count = (category) => selected.filter((record) => record.auditCategory === category).length;
 const cards = selected.map((record, index) => {
@@ -362,8 +493,9 @@ const summaryLines = [
   `- Possible false negatives: ${count("Possible false negative")}`,
   `- Possible false positives: ${count("Possible false positive")}`,
   `- Passed quality-control samples: ${count("Passed quality-control sample")}`,
+  `- Portal review decisions required: ${reviewItems.length}`,
   "- Download the `image-audit-report` artifact and open `index.html` to review the evidence.",
   ""
 ].join("\n");
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryLines);
-console.log(`Created ${scope} image-audit report with ${selected.length} entries for ${results.length} students.`);
+console.log(`Created ${scope} image-audit report with ${selected.length} entries and ${reviewItems.length} portal decisions for ${results.length} students.`);
