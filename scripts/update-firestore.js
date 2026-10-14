@@ -16,6 +16,24 @@ const db = getFirestore();
 const trusted = new Map(students.map((s) => [String(s.github_username).toLowerCase(), s]));
 let updated = 0;
 let skipped = 0;
+const cleanMarkName = (value) => String(value || "").trim().replace(/\s+/g, " ");
+const markNameKey = (value) => cleanMarkName(value).toLowerCase();
+const mergeCategories = (...marksSources) => {
+  const merged = new Map();
+  marksSources.flatMap((marks) => Array.isArray(marks?.categories) ? marks.categories : []).forEach((sourceCategory) => {
+    const name = cleanMarkName(sourceCategory?.name); const key = markNameKey(name); if (!key) return;
+    if (!merged.has(key)) merged.set(key, { ...sourceCategory, name, items: [] });
+    const category = merged.get(key); const itemIndexes = new Map(category.items.map((item, index) => [markNameKey(item.name), index]));
+    (Array.isArray(sourceCategory?.items) ? sourceCategory.items : []).forEach((sourceItem) => {
+      const itemName = cleanMarkName(sourceItem?.name); const itemKey = markNameKey(itemName); if (!itemKey) return;
+      const candidate = { ...sourceItem, name: itemName };
+      if (!itemIndexes.has(itemKey)) { itemIndexes.set(itemKey, category.items.length); category.items.push(candidate); return; }
+      const index = itemIndexes.get(itemKey); const existing = category.items[index];
+      if ((Date.parse(candidate.graded_at || "") || 0) > (Date.parse(existing.graded_at || "") || 0)) category.items[index] = candidate;
+    });
+  });
+  return [...merged.values()];
+};
 
 for (const result of results) {
   const student = trusted.get(String(result.github_username).toLowerCase());
@@ -36,23 +54,52 @@ for (const result of results) {
     skipped++;
     continue;
   }
-  const ref = db.doc(student.enrollment_path);
+  const ref = db.doc(student.enrollment_path); const privateRef = db.collection("private_marks").doc(student.enrollment_id);
+  let categoryHiddenFromStudents = false;
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
     if (!snapshot.exists || snapshot.data().approved !== true) throw new Error(`${student.registration_number} is no longer approved.`);
     const enrollment = snapshot.data();
     const values = [enrollment.course_id, enrollment.course_code].map((v) => String(v || "").toLowerCase());
     if (!values.includes(config.courseCode.toLowerCase())) throw new Error("Enrollment course changed.");
-    const categories = Array.isArray(enrollment?.marks?.categories) ? structuredClone(enrollment.marks.categories) : [];
-    let category = categories.find((c) => String(c.name).toLowerCase() === config.category.toLowerCase());
-    if (!category) { category = { name: config.category, items: [] }; categories.push(category); }
-    if (!Array.isArray(category.items)) category.items = [];
-    const marks = { name: config.assessment, obtained: result.obtained, total: result.total, review_required: reviewCount > 0, review_count: reviewCount, feedback: result.feedback, repository: result.repository, graded_at: result.graded_at };
-    const existing = category.items.find((item) => String(item.name).toLowerCase() === config.assessment.toLowerCase());
+    const privateSnapshot = await transaction.get(privateRef);
+    const courseId = String(enrollment.course_id || "").trim(); const courseSnapshot = courseId ? await transaction.get(db.collection("courses").doc(courseId)) : null;
+    const categories = mergeCategories(privateSnapshot.exists ? privateSnapshot.data()?.marks : null, enrollment.marks);
+    const categoryKey = markNameKey(config.category); const matchingCategories = categories.filter((candidate) => markNameKey(candidate?.name) === categoryKey);
+    let category;
+    if (matchingCategories.length) {
+      const matchingItems = matchingCategories.map((sourceCategory) => Array.isArray(sourceCategory?.items) ? structuredClone(sourceCategory.items) : []);
+      category = matchingCategories[0]; category.name = cleanMarkName(config.category); category.items = [];
+      const itemIndexes = new Map();
+      matchingItems.forEach((sourceItems) => sourceItems.forEach((sourceItem) => {
+        const itemKey = markNameKey(sourceItem?.name); if (!itemKey) return;
+        const candidate = { ...sourceItem, name: cleanMarkName(sourceItem.name) };
+        if (!itemIndexes.has(itemKey)) { itemIndexes.set(itemKey, category.items.length); category.items.push(candidate); return; }
+        const index = itemIndexes.get(itemKey); const existingItem = category.items[index];
+        if ((Date.parse(candidate.graded_at || "") || 0) > (Date.parse(existingItem.graded_at || "") || 0)) category.items[index] = candidate;
+      }));
+      const consolidated = categories.filter((candidate) => !matchingCategories.includes(candidate) || candidate === category);
+      categories.splice(0, categories.length, ...consolidated);
+    } else { category = { name: cleanMarkName(config.category), items: [] }; categories.push(category); }
+    const marks = { name: cleanMarkName(config.assessment), obtained: result.obtained, total: result.total, review_required: reviewCount > 0, review_count: reviewCount, feedback: result.feedback, repository: result.repository, graded_at: result.graded_at };
+    const existing = category.items.find((item) => markNameKey(item.name) === markNameKey(config.assessment));
     if (existing) Object.assign(existing, marks); else category.items.push(marks);
-    transaction.update(ref, { marks: { categories }, updated_at: FieldValue.serverTimestamp() });
+    const hiddenCategoryKeys = new Set((Array.isArray(courseSnapshot?.data()?.hidden_mark_categories) ? courseSnapshot.data().hidden_mark_categories : []).map(markNameKey).filter(Boolean));
+    categoryHiddenFromStudents = hiddenCategoryKeys.has(categoryKey);
+    const publicCategories = categories.filter((candidate) => !hiddenCategoryKeys.has(markNameKey(candidate?.name)));
+    const updatedAt = FieldValue.serverTimestamp();
+    transaction.set(privateRef, { enrollment_id: ref.id, user_id: enrollment.user_id, course_id: enrollment.course_id, marks: { categories }, updated_at: updatedAt });
+    transaction.update(ref, { marks: { categories: publicCategories }, updated_at: updatedAt });
   });
-  console.log(`Updated ${student.registration_number}: ${config.category}/${config.assessment} = ${result.obtained}/${result.total}`);
+  const [privateVerification, publicVerification] = await Promise.all([privateRef.get(), ref.get()]); const savedCategories = Array.isArray(privateVerification.data()?.marks?.categories) ? privateVerification.data().marks.categories : [];
+  const savedCategory = savedCategories.find((candidate) => markNameKey(candidate?.name) === markNameKey(config.category));
+  const savedMark = (Array.isArray(savedCategory?.items) ? savedCategory.items : []).find((item) => markNameKey(item?.name) === markNameKey(config.assessment));
+  if (!savedMark || Number(savedMark.obtained) !== result.obtained || Number(savedMark.total) !== result.total) throw new Error(`Firestore read-back verification failed for ${student.registration_number}.`);
+  const publicCategories = Array.isArray(publicVerification.data()?.marks?.categories) ? publicVerification.data().marks.categories : [];
+  const publicCategory = publicCategories.find((candidate) => markNameKey(candidate?.name) === markNameKey(config.category));
+  const publicMark = (Array.isArray(publicCategory?.items) ? publicCategory.items : []).find((item) => markNameKey(item?.name) === markNameKey(config.assessment));
+  if (categoryHiddenFromStudents ? Boolean(publicCategory) : (!publicMark || Number(publicMark.obtained) !== result.obtained || Number(publicMark.total) !== result.total)) throw new Error(`Student-visibility verification failed for ${student.registration_number}.`);
+  console.log(`Updated and verified ${student.registration_number}: ${config.category}/${config.assessment} = ${result.obtained}/${result.total} (${categoryHiddenFromStudents ? "administrator-only" : "student-visible"})`);
   updated++;
 }
 
