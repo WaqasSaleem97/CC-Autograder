@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { canonicalScreenshotName } from "./screenshot-normalization.js";
 
 export const REVIEW_DECISIONS = new Set(["pending", "valid", "invalid", "review-later"]);
@@ -14,6 +15,85 @@ export function resultKey(value = {}) {
       || value.github_username
       || ""
   ).trim();
+}
+
+export function isCleanFullCreditReference(record = {}) {
+  const automatic = Number(record.automaticPoints);
+  const maximum = Number(record.maxPoints);
+  return Boolean(record.source)
+    && Boolean(record.hash)
+    && record.automaticStatus === "Passed"
+    && Number.isFinite(automatic)
+    && Number.isFinite(maximum)
+    && maximum > 0
+    && Math.abs(automatic - maximum) < 0.000001
+    && ["Automatic pass", "Passed quality-control sample"].includes(record.auditCategory)
+    && (!Array.isArray(record.duplicateReferences) || record.duplicateReferences.length === 0);
+}
+
+export function buildReferenceCriteria(records = [], options = {}) {
+  const studentImageUrl = typeof options.studentImageUrl === "function" ? options.studentImageUrl : () => "";
+  const instructorImageUrl = typeof options.instructorImageUrl === "function" ? options.instructorImageUrl : () => "";
+  const groups = new Map();
+
+  for (const record of records) {
+    const criterionId = String(record.criterionId || record.expectedName || "").trim();
+    if (!criterionId) continue;
+    if (!groups.has(criterionId)) {
+      groups.set(criterionId, {
+        id: createHash("sha256").update(criterionId).digest("hex").slice(0, 32),
+        criterion_id: criterionId,
+        criterion_order: Number.isFinite(Number(record.criterionOrder)) ? Number(record.criterionOrder) : Number.MAX_SAFE_INTEGER,
+        criterion_label: String(record.criterionLabel || record.expectedName || "Evidence"),
+        expected_filename: String(record.expectedName || ""),
+        expected_evidence: Array.isArray(record.expectedEvidence) ? record.expectedEvidence.map(String) : [],
+        reference_candidates: []
+      });
+    }
+
+    if (!isCleanFullCreditReference(record)) continue;
+    const imageUrl = String(studentImageUrl(record) || "").trim();
+    if (!imageUrl) continue;
+    const group = groups.get(criterionId);
+    group.reference_candidates.push({
+      id: createHash("sha256").update(`${criterionId}|${record.enrollmentId}|${record.hash}`).digest("hex").slice(0, 32),
+      source: "student-full-credit",
+      label: `${record.registration || "No registration"} · ${record.username || "No username"}`,
+      registration_number: String(record.registration || ""),
+      github_username: String(record.username || ""),
+      image_url: imageUrl,
+      submitted_path: String(record.submittedPath || ""),
+      image_sha256: String(record.hash || ""),
+      automatic_points: Number(record.automaticPoints),
+      max_points: Number(record.maxPoints)
+    });
+  }
+
+  return [...groups.values()].map((group) => {
+    const firstRecord = records.find((record) => String(record.criterionId || record.expectedName || "").trim() === group.criterion_id);
+    const instructorUrl = String(instructorImageUrl(firstRecord || {}) || "").trim();
+    if (instructorUrl) {
+      group.reference_candidates.unshift({
+        id: createHash("sha256").update(`${group.criterion_id}|instructor|${instructorUrl}`).digest("hex").slice(0, 32),
+        source: "instructor",
+        label: "Instructor reference",
+        registration_number: "",
+        github_username: "",
+        image_url: instructorUrl,
+        submitted_path: group.expected_filename,
+        image_sha256: "",
+        automatic_points: null,
+        max_points: null
+      });
+    }
+    group.reference_candidates.sort((left, right) => {
+      if (left.source !== right.source) return left.source === "instructor" ? -1 : 1;
+      return left.label.localeCompare(right.label) || left.id.localeCompare(right.id);
+    });
+    group.reference_candidate_ids = group.reference_candidates.map((candidate) => candidate.id);
+    group.selected_reference_ids = [...group.reference_candidate_ids];
+    return group;
+  }).sort((left, right) => left.criterion_order - right.criterion_order || left.criterion_label.localeCompare(right.criterion_label));
 }
 
 export function targetPoints(item) {

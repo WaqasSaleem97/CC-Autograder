@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildReferenceCriteria } from "./manual-review.js";
 import { canonicalScreenshotName } from "./screenshot-normalization.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -135,7 +136,7 @@ function defaultExpectedEvidence(filename) {
   return [
     `Submit the required screenshot named ${filename} (capitalization and repeated image extensions are ignored).`,
     "The image must clearly show the task-specific command or page and its successful result.",
-    "Use the instructor reference image when one is available; otherwise compare against the written requirement shown here."
+    "Compare against the selected clean full-credit examples or instructor reference when available; otherwise use the written requirement shown here."
   ];
 }
 
@@ -391,6 +392,13 @@ const reviewItems = selected
 
 writeFileSync(path.join(reportRoot, "review-items.json"), `${JSON.stringify(reviewItems, null, 2)}\n`);
 
+const reviewedCriteria = new Set(reviewItems.map((item) => item.criterion_id));
+const reviewCriteria = buildReferenceCriteria(records, {
+  studentImageUrl: rawStudentImageUrl,
+  instructorImageUrl: (record) => referenceImageUrl(record.expectedName)
+}).filter((criterion) => reviewedCriteria.has(criterion.criterion_id));
+writeFileSync(path.join(reportRoot, "review-criteria.json"), `${JSON.stringify(reviewCriteria, null, 2)}\n`);
+
 const count = (category) => selected.filter((record) => record.auditCategory === category).length;
 const cards = selected.map((record, index) => {
   const image = record.reportImage
@@ -494,8 +502,9 @@ const summaryLines = [
   `- Possible false positives: ${count("Possible false positive")}`,
   `- Passed quality-control samples: ${count("Passed quality-control sample")}`,
   `- Portal review decisions required: ${reviewItems.length}`,
+  `- Expected-image pools prepared: ${reviewCriteria.length} (${reviewCriteria.reduce((total, criterion) => total + criterion.reference_candidates.length, 0)} clean full-credit or instructor reference image(s))`,
   "- Download the `image-audit-report` artifact and open `index.html` to review the evidence.",
   ""
 ].join("\n");
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryLines);
-console.log(`Created ${scope} image-audit report with ${selected.length} entries and ${reviewItems.length} portal decisions for ${results.length} students.`);
+console.log(`Created ${scope} image-audit report with ${selected.length} entries, ${reviewItems.length} portal decisions, and ${reviewCriteria.length} expected-image pools for ${results.length} students.`);

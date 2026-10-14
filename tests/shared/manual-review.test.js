@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyReviewDecisions, reviewedFeedback } from "../../scripts/manual-review.js";
+import { applyReviewDecisions, buildReferenceCriteria, isCleanFullCreditReference, reviewedFeedback } from "../../scripts/manual-review.js";
 
 const baseResult = {
   enrollment_id: "test-student__cc",
@@ -60,4 +60,34 @@ test("structured grading recomputes from the exact non-image base", () => {
     automatic_points: 0, max_points: 0.75, decision: "valid"
   }]);
   assert.equal(reviewed.obtained, 7.42);
+});
+
+test("every clean full-credit image becomes a selected reference candidate", () => {
+  const base = {
+    criterionId: "question-2",
+    criterionOrder: 1,
+    criterionLabel: "Question 2",
+    expectedName: "task2_remotes.png",
+    expectedEvidence: ["Show both remotes."],
+    automaticStatus: "Passed",
+    automaticPoints: 1,
+    maxPoints: 1,
+    auditCategory: "Automatic pass",
+    duplicateReferences: [],
+    source: "/tmp/image.png"
+  };
+  const records = [
+    { ...base, enrollmentId: "student-01__cc", registration: "2024-BSE-01", username: "student01", hash: "a".repeat(64), submittedPath: "screenshots/task2_remotes.png" },
+    { ...base, enrollmentId: "student-02__cc", registration: "2024-BSE-02", username: "student02", hash: "b".repeat(64), submittedPath: "screenshots/task2_remotes.png", auditCategory: "Passed quality-control sample" },
+    { ...base, enrollmentId: "student-03__cc", registration: "2024-BSE-03", username: "student03", hash: "c".repeat(64), duplicateReferences: ["2024-BSE-04: task2_remotes.png"], auditCategory: "Possible false positive" },
+    { ...base, enrollmentId: "student-04__cc", registration: "2024-BSE-04", username: "student04", hash: "d".repeat(64), automaticStatus: "Failed", automaticPoints: 0, auditCategory: "Possible false negative" }
+  ];
+  const criteria = buildReferenceCriteria(records, {
+    studentImageUrl: (record) => `https://raw.githubusercontent.com/example/CC/commit/${record.registration}.png`
+  });
+  assert.equal(criteria.length, 1);
+  assert.deepEqual(criteria[0].reference_candidates.map((candidate) => candidate.registration_number), ["2024-BSE-01", "2024-BSE-02"]);
+  assert.deepEqual(criteria[0].selected_reference_ids, criteria[0].reference_candidate_ids);
+  assert.equal(isCleanFullCreditReference(records[0]), true);
+  assert.equal(isCleanFullCreditReference(records[2]), false);
 });

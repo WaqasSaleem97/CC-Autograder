@@ -149,6 +149,24 @@ The Assignment 01 grader is aligned with the current question in
 - Visible tokens, passwords, private keys, or credentials embedded in remote
   URLs cause the affected screenshot check to fail.
 
+## Pre-publication screenshot review
+
+The workflow's **Manual review** option works for every configured lab, quiz,
+assignment, midterm, final, and project that produces structured screenshot
+checks. The grading runner finishes after staging suspicious possible false
+positives and false negatives; it does not wait while the instructor reviews
+them and does not publish marks or send email at that point.
+
+For each criterion in the review queue, every clean screenshot that received
+the full automatic points is selected as an expected-image example. Several
+students can therefore be reference examples for the same question. Exact
+cross-student duplicates and other screenshots already flagged as suspicious
+are excluded from this automatic reference pool. The instructor can select or
+unselect examples in the portal without changing any marks. After all evidence
+decisions are complete, the separate **Finalize reviewed grading run** workflow
+recalculates the affected marks and performs the originally requested portal
+publication and email delivery.
+
 ## Lab 04 grading
 
 The Lab 04 grader is aligned with the current question in

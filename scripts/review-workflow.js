@@ -29,9 +29,11 @@ async function stageReview() {
   const results = readJson("results/grading-results.json");
   const students = readJson("results/students.json");
   const items = readJson("results/image-audit/review-items.json");
+  const criteria = readJson("results/image-audit/review-criteria.json");
   if (!Array.isArray(results) || !results.length) throw new Error("No grading results were produced.");
   if (!Array.isArray(students) || !students.length) throw new Error("No trusted students were selected.");
   if (!Array.isArray(items)) throw new Error("The review queue is invalid.");
+  if (!Array.isArray(criteria)) throw new Error("The expected-image criteria are invalid.");
 
   const trusted = new Map(students.map((student) => [String(student.github_username).trim().toLowerCase(), student]));
   const stagedResults = results.map((result) => {
@@ -48,6 +50,30 @@ async function stageReview() {
     if (!String(item.id || "").match(/^[a-f0-9]{32}$/) || !resultIds.has(resultKey(item))) throw new Error("A review item is not linked to a trusted result.");
     if (!Number.isFinite(Number(item.automatic_points)) || !Number.isFinite(Number(item.max_points)) || Number(item.automatic_points) < 0 || Number(item.max_points) <= 0 || Number(item.automatic_points) > Number(item.max_points)) {
       throw new Error(`Invalid review points for ${item.expected_filename || item.id}.`);
+    }
+  }
+  const itemCriteria = new Set(items.map((item) => String(item.criterion_id || "")));
+  for (const criterion of criteria) {
+    if (!String(criterion.id || "").match(/^[a-f0-9]{32}$/) || !itemCriteria.has(String(criterion.criterion_id || ""))) {
+      throw new Error("An expected-image pool is not linked to a staged review criterion.");
+    }
+    if (!Array.isArray(criterion.reference_candidates) || !Array.isArray(criterion.reference_candidate_ids) || !Array.isArray(criterion.selected_reference_ids)) {
+      throw new Error(`Invalid expected-image pool for ${criterion.criterion_label || criterion.id}.`);
+    }
+    const candidateIds = criterion.reference_candidates.map((candidate) => String(candidate.id || ""));
+    if (candidateIds.some((id) => !id.match(/^[a-f0-9]{32}$/)) || new Set(candidateIds).size !== candidateIds.length) {
+      throw new Error(`Invalid expected-image candidate identifiers for ${criterion.criterion_label || criterion.id}.`);
+    }
+    if (candidateIds.join("|") !== criterion.reference_candidate_ids.map(String).join("|")) {
+      throw new Error(`Expected-image candidate index mismatch for ${criterion.criterion_label || criterion.id}.`);
+    }
+    if (criterion.selected_reference_ids.some((id) => !candidateIds.includes(String(id)))) {
+      throw new Error(`An unknown expected image was selected for ${criterion.criterion_label || criterion.id}.`);
+    }
+    for (const candidate of criterion.reference_candidates) {
+      if (!String(candidate.image_url || "").startsWith("https://raw.githubusercontent.com/")) {
+        throw new Error(`Unsafe expected-image URL for ${criterion.criterion_label || criterion.id}.`);
+      }
     }
   }
 
@@ -72,7 +98,7 @@ async function stageReview() {
   }
 
   await runRef.set({
-    schema_version: 1,
+    schema_version: 2,
     run_id: gradingRunId,
     status: "staging",
     course_code: config.courseCode,
@@ -84,6 +110,8 @@ async function stageReview() {
     config,
     student_count: stagedResults.length,
     item_count: items.length,
+    criterion_count: criteria.length,
+    reference_image_count: criteria.reduce((total, criterion) => total + criterion.reference_candidates.length, 0),
     pending_count: items.length,
     reviewed_count: 0,
     requested_update_firestore: envBoolean("UPDATE_FIRESTORE"),
@@ -104,9 +132,13 @@ async function stageReview() {
     ref: runRef.collection("items").doc(item.id),
     data: { ...item, decision: "pending", reviewer_note: "", reviewed_at: null, reviewer_uid: "", created_at: FieldValue.serverTimestamp() }
   })));
+  await writeDocuments(criteria.map((criterion) => ({
+    ref: runRef.collection("criteria").doc(criterion.id),
+    data: { ...criterion, reviewer_uid: "", reviewed_at: null, updated_at: FieldValue.serverTimestamp(), created_at: FieldValue.serverTimestamp() }
+  })));
   await runRef.update({ status, updated_at: FieldValue.serverTimestamp() });
 
-  summary(`Staged grading run ${gradingRunId}: ${stagedResults.length} students and ${items.length} suspicious screenshot(s). Status: ${status}.`);
+  summary(`Staged grading run ${gradingRunId}: ${stagedResults.length} students, ${items.length} suspicious screenshot(s), and ${criteria.reduce((total, criterion) => total + criterion.reference_candidates.length, 0)} selected expected-image example(s). Status: ${status}.`);
 }
 
 async function prepareFinalization() {
