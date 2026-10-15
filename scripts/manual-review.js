@@ -58,6 +58,7 @@ export function buildReferenceCriteria(records = [], options = {}) {
     group.reference_candidates.push({
       id: createHash("sha256").update(`${criterionId}|${record.enrollmentId}|${record.hash}`).digest("hex").slice(0, 32),
       source: "student-full-credit",
+      enrollment_id: String(record.enrollmentId || ""),
       label: `${record.registration || "No registration"} · ${record.username || "No username"}`,
       registration_number: String(record.registration || ""),
       github_username: String(record.username || ""),
@@ -94,6 +95,38 @@ export function buildReferenceCriteria(records = [], options = {}) {
     group.selected_reference_ids = [...group.reference_candidate_ids];
     return group;
   }).sort((left, right) => left.criterion_order - right.criterion_order || left.criterion_label.localeCompare(right.criterion_label));
+}
+
+export function invalidReferenceReviewItems(criteria = []) {
+  const deductions = new Map();
+  for (const criterion of criteria) {
+    const selected = new Set((criterion.selected_reference_ids || []).map(String));
+    for (const candidate of criterion.reference_candidates || []) {
+      if (candidate.source !== "student-full-credit" || selected.has(String(candidate.id || ""))) continue;
+      const enrollmentId = String(candidate.enrollment_id || "").trim();
+      const automaticPoints = Number(candidate.automatic_points);
+      const maxPoints = Number(candidate.max_points);
+      if (!enrollmentId || !Number.isFinite(automaticPoints) || !Number.isFinite(maxPoints) || automaticPoints < 0 || maxPoints <= 0 || automaticPoints > maxPoints) {
+        throw new Error(`Invalid excluded reference candidate for ${criterion.criterion_label || criterion.criterion_id || "criterion"}.`);
+      }
+      const key = `${enrollmentId}|${canonicalScreenshotName(criterion.expected_filename)}`;
+      deductions.set(key, {
+        id: `invalid-reference-${candidate.id}`,
+        enrollment_id: enrollmentId,
+        registration_number: String(candidate.registration_number || ""),
+        github_username: String(candidate.github_username || ""),
+        criterion_id: String(criterion.criterion_id || ""),
+        criterion_order: Number(criterion.criterion_order),
+        criterion_label: String(criterion.criterion_label || criterion.expected_filename || "Evidence"),
+        expected_filename: String(criterion.expected_filename || ""),
+        automatic_points: automaticPoints,
+        max_points: maxPoints,
+        decision: "invalid",
+        reviewer_note: "Expected evidence was marked invalid by the administrator. Only this criterion was deducted."
+      });
+    }
+  }
+  return [...deductions.values()];
 }
 
 export function targetPoints(item) {

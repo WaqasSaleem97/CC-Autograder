@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applicationDefault, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { applyReviewDecisions, resultKey } from "./manual-review.js";
+import { applyReviewDecisions, invalidReferenceReviewItems, resultKey } from "./manual-review.js";
+import { canonicalScreenshotName } from "./screenshot-normalization.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const command = String(process.argv[2] || "").trim().toLowerCase();
@@ -73,6 +74,14 @@ async function stageReview() {
     for (const candidate of criterion.reference_candidates) {
       if (!String(candidate.image_url || "").startsWith("https://raw.githubusercontent.com/")) {
         throw new Error(`Unsafe expected-image URL for ${criterion.criterion_label || criterion.id}.`);
+      }
+      if (candidate.source === "student-full-credit") {
+        if (!resultIds.has(String(candidate.enrollment_id || ""))) {
+          throw new Error(`An expected-image candidate is not linked to a trusted student for ${criterion.criterion_label || criterion.id}.`);
+        }
+        if (!Number.isFinite(Number(candidate.automatic_points)) || !Number.isFinite(Number(candidate.max_points)) || Number(candidate.automatic_points) < 0 || Number(candidate.max_points) <= 0 || Number(candidate.automatic_points) > Number(candidate.max_points)) {
+          throw new Error(`Invalid expected-image points for ${criterion.criterion_label || criterion.id}.`);
+        }
       }
     }
   }
@@ -157,16 +166,27 @@ async function prepareFinalization() {
     });
   });
 
-  const [runSnapshot, resultSnapshot, itemSnapshot] = await Promise.all([
+  const [runSnapshot, resultSnapshot, itemSnapshot, criterionSnapshot] = await Promise.all([
     runRef.get(),
     runRef.collection("results").get(),
-    runRef.collection("items").get()
+    runRef.collection("items").get(),
+    runRef.collection("criteria").get()
   ]);
   const run = runSnapshot.data();
   const staged = resultSnapshot.docs.map((snapshot) => snapshot.data());
   const items = itemSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
+  const criteria = criterionSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
   if (items.length !== Number(run.item_count || 0)) throw new Error("The staged review queue is incomplete.");
-  const results = applyReviewDecisions(staged.map((entry) => entry.result), items);
+  if (criteria.length !== Number(run.criterion_count || 0)) throw new Error("The staged expected-image criteria are incomplete.");
+  const referenceDeductions = invalidReferenceReviewItems(criteria);
+  const reviewKeys = new Set(items.map((item) => `${resultKey(item)}|${canonicalScreenshotName(item.expected_filename)}`));
+  for (const deduction of referenceDeductions) {
+    const key = `${resultKey(deduction)}|${canonicalScreenshotName(deduction.expected_filename)}`;
+    if (reviewKeys.has(key)) throw new Error(`An invalid expected image overlaps an existing review decision for ${deduction.expected_filename}.`);
+    reviewKeys.add(key);
+  }
+  const finalItems = [...items, ...referenceDeductions];
+  const results = applyReviewDecisions(staged.map((entry) => entry.result), finalItems);
   const students = staged.map((entry) => entry.student);
 
   mkdirSync(path.join(root, "results"), { recursive: true });
@@ -177,7 +197,7 @@ async function prepareFinalization() {
   output("update_firestore", Boolean(run.requested_update_firestore));
   output("send_email_results", Boolean(run.requested_send_email));
   output("student_count", results.length);
-  summary(`Prepared ${results.length} final result(s) from grading run ${gradingRunId}. All ${items.length} review decision(s) are resolved.`);
+  summary(`Prepared ${results.length} final result(s) from grading run ${gradingRunId}. All ${items.length} review decision(s) are resolved; ${referenceDeductions.length} invalid expected-image criterion deduction(s) were applied.`);
 }
 
 async function completeFinalization() {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyReviewDecisions, buildReferenceCriteria, isCleanFullCreditReference, reviewedFeedback } from "../../scripts/manual-review.js";
+import { applyReviewDecisions, buildReferenceCriteria, invalidReferenceReviewItems, isCleanFullCreditReference, reviewedFeedback } from "../../scripts/manual-review.js";
 
 const baseResult = {
   enrollment_id: "test-student__cc",
@@ -87,7 +87,38 @@ test("every clean full-credit image becomes a selected reference candidate", () 
   });
   assert.equal(criteria.length, 1);
   assert.deepEqual(criteria[0].reference_candidates.map((candidate) => candidate.registration_number), ["2024-BSE-01", "2024-BSE-02"]);
+  assert.deepEqual(criteria[0].reference_candidates.map((candidate) => candidate.enrollment_id), ["student-01__cc", "student-02__cc"]);
   assert.deepEqual(criteria[0].selected_reference_ids, criteria[0].reference_candidate_ids);
   assert.equal(isCleanFullCreditReference(records[0]), true);
   assert.equal(isCleanFullCreditReference(records[2]), false);
+});
+
+test("removing one expected image deducts only its owner's matching criterion", () => {
+  const criterion = {
+    criterion_id: "question-2",
+    criterion_order: 1,
+    criterion_label: "Question 2",
+    expected_filename: "task2_remotes.png",
+    selected_reference_ids: ["candidate-02"],
+    reference_candidates: [
+      { id: "candidate-01", source: "student-full-credit", enrollment_id: "student-01__cc", registration_number: "2024-BSE-01", github_username: "student01", automatic_points: 1, max_points: 1 },
+      { id: "candidate-02", source: "student-full-credit", enrollment_id: "student-02__cc", registration_number: "2024-BSE-02", github_username: "student02", automatic_points: 1, max_points: 1 }
+    ]
+  };
+  const deductions = invalidReferenceReviewItems([criterion]);
+  assert.equal(deductions.length, 1);
+  assert.equal(deductions[0].enrollment_id, "student-01__cc");
+  assert.equal(deductions[0].expected_filename, "task2_remotes.png");
+  assert.equal(deductions[0].decision, "invalid");
+
+  const results = [
+    { enrollment_id: "student-01__cc", github_username: "student01", status: "graded", obtained: 10, total: 10, feedback: "Passed 10/10 checks. task2_remotes.png: passed; other.png: passed" },
+    { enrollment_id: "student-02__cc", github_username: "student02", status: "graded", obtained: 10, total: 10, feedback: "Passed 10/10 checks. task2_remotes.png: passed; other.png: passed" }
+  ];
+  const reviewed = applyReviewDecisions(results, deductions);
+  assert.equal(reviewed[0].obtained, 9);
+  assert.match(reviewed[0].feedback, /task2_remotes\.png: failed after manual review \(0\)/);
+  assert.match(reviewed[0].feedback, /other\.png: passed/);
+  assert.equal(reviewed[1].obtained, 10);
+  assert.doesNotMatch(reviewed[1].feedback, /^Final score/);
 });
