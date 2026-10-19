@@ -109,27 +109,29 @@ escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()
 # Identity flags:
 #   none     - no username requirement
 #   username - the GitHub username must be visible
+# Only the required evidence for Tasks 1-11 is graded. Exam Evaluation
+# Questions and bonus tasks are intentionally excluded from the score.
 readarray -t criteria <<'EOF'
-remote_edit.png|none|(github|readme);;(commit|committed|remote)
+remote_edit.png|none|(github|readme|repository);;(commit|committed|remote[[:space:]]+(update|edit)|added[[:space:]]+remotely)
 local_commit.png|none|git[[:space:]]+commit;;local.*update
 push_error.png|none|git[[:space:]]+push;;(rejected|failed[[:space:]]+to[[:space:]]+push|fetch[[:space:]]+first)
-merge_commit.png|none|git[[:space:]]+pull;;(no-rebase|merge|merging)
+merge_commit.png|none|(git[[:space:]]+pull.*(no-rebase|origin[[:space:]]+main)|merge.*(remote|local|readme)|auto-merging);;(merge|merging|readme|main|head)
 push_after_merge.png|none|git[[:space:]]+push;;(main|objects|up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track)
 rebase_pull.png|none|git[[:space:]]+pull;;rebase
 push_after_rebase.png|none|git[[:space:]]+push;;(main|objects|up-to-date)
-remote_conflict_edit.png|none|(github|readme);;(conflict|remote);;(commit|committed)
+remote_conflict_edit.png|none|(github|readme|repository);;(conflict|remote[[:space:]]+(change|edit|update)|updated[[:space:]]+remotely|commit)
 local_conflict_edit.png|none|(readme|visual[[:space:]]+studio[[:space:]]+code|vscode);;(local|conflict|updated)
 local_conflict_commit.png|none|git[[:space:]]+commit;;(local|conflict)
 conflict_push_error.png|none|git[[:space:]]+push;;(rejected|failed[[:space:]]+to[[:space:]]+push|fetch[[:space:]]+first)
 conflict_message.png|none|git[[:space:]]+pull;;rebase;;conflict
-resolved_readme.png|none|readme;;(local|remote|resolved|updated)
-rebase_continue.png|none|git[[:space:]]+rebase;;continue
+resolved_readme.png|none|(readme|local.*remote|remote.*local|resolved);;(local|remote|resolved|updated)
+rebase_continue.png|none|(git[[:space:]]+rebase.*continue|successfully[[:space:]]+rebased|continue[[:space:]]+rebasing|rebase[[:space:]]+in[[:space:]]+progress)
 push_after_resolve.png|none|git[[:space:]]+push;;(main|objects|up-to-date)
 push_textfiles.png|none|git[[:space:]]+push;;textfiles
 gitignore_push.png|none|(gitignore|[.]gitignore);;git[[:space:]]+push
 repo_still_has_textfiles.png|none|textfiles;;(github|repository|a[.]txt|b[.]txt|c[.]txt)
-rm_cached_push.png|none|(rm[[:space:]]+-r[[:space:]]+--cached|removed[[:space:]]+tracked[[:space:]]+textfiles);;git[[:space:]]+push
-repo_textfiles_removed.png|none|(github|repository);;(textfiles|[.]gitignore)
+rm_cached_push.png|none|(git[[:space:]]+rm.*--cached|removed[[:space:]]+tracked[[:space:]]+text[[:space:]]*files);;(git[[:space:]]+push|main|objects|github)
+repo_textfiles_removed.png|none|(github|repository|code|main|page[[:space:]]+not[[:space:]]+found);;(textfiles|text[[:space:]]*files|gitignore|does[[:space:]]+not[[:space:]]+contain[[:space:]]+the[[:space:]]+path|removed[[:space:]]+tracked)
 modified_readme.png|none|(readme|README);;(commit|changes|feature-branch)
 checkout_error.png|none|git[[:space:]]+checkout;;(local[[:space:]]+changes|overwritten[[:space:]]+by[[:space:]]+checkout|stash)
 stash_command.png|none|git[[:space:]]+stash;;(saved|working[[:space:]]+directory|index[[:space:]]+state)
@@ -137,23 +139,23 @@ branch_switched.png|none|git[[:space:]]+checkout;;main;;(switched|already[[:spac
 back_to_feature.png|none|git[[:space:]]+checkout;;feature-branch;;(switched|already[[:space:]]+on)
 status_clean.png|none|git[[:space:]]+status;;(working[[:space:]]+tree[[:space:]]+clean|nothing[[:space:]]+to[[:space:]]+commit)
 stash_pop.png|none|git[[:space:]]+stash;;pop;;(changes[[:space:]]+not[[:space:]]+staged|dropped|feature-branch)
-log_before_checkout.png|none|git[[:space:]]+log;;oneline
+log_before_checkout.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]*(main|feature)|origin/main);;(oneline|[0-9a-f]{5,40}|commit|head)
 detached_head.png|none|git[[:space:]]+checkout;;(detached[[:space:]]+head|HEAD[[:space:]]+is[[:space:]]+now[[:space:]]+at)
 back_to_main.png|none|git[[:space:]]+checkout;;main;;(switched|already[[:space:]]+on)
 first_commit.png|none|git[[:space:]]+commit;;added[[:space:]]+test[[:space:]]+line
 second_commit.png|none|git[[:space:]]+commit;;second[[:space:]]+test[[:space:]]+commit
-log_before_reset.png|none|git[[:space:]]+log;;oneline;;(added[[:space:]]+test[[:space:]]+line|second[[:space:]]+test[[:space:]]+commit)
+log_before_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|added[[:space:]]+test[[:space:]]+line|second[[:space:]]+test[[:space:]]+commit|[0-9a-f]{5,40})
 file_before_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit)
 soft_reset.png|none|git[[:space:]]+reset;;--soft;;HEAD~1
-log_after_soft_reset.png|none|git[[:space:]]+log;;oneline
+log_after_soft_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|[0-9a-f]{5,40}|head|commit)
 file_after_soft_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit)
 file_after_hard_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit|commit)
 hard_reset.png|none|git[[:space:]]+reset;;--hard;;HEAD~1
-log_after_hard_reset.png|none|git[[:space:]]+log;;oneline
+log_after_hard_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|[0-9a-f]{5,40}|head|commit)
 first_amend_commit.png|none|git[[:space:]]+commit;;fix[[:space:]]+log[[:space:]]+message
-amend_commit.png|none|git[[:space:]]+commit;;--amend
+amend_commit.png|none|(git[[:space:]]+commit.*--amend|amend|fix[[:space:]]+log[[:space:]]+message);;(commit|files?[[:space:]]+changed|insertion|fix[[:space:]]+log)
 commit_temp_file.png|none|(temp[.]txt|temporary[[:space:]]+text);;git[[:space:]]+(commit|push)
-revert_commit.png|none|git[[:space:]]+revert;;[0-9a-f]{5,40}
+revert_commit.png|none|(git[[:space:]]+revert|revert.*temporary);;(HEAD|[0-9a-f]{5,40}|temporary|files?[[:space:]]+changed|deletion)
 revert_push.png|none|git[[:space:]]+push;;(main|objects|revert)
 new_branch.png|none|git[[:space:]]+checkout;;-b;;test-force
 force_commit.png|none|git[[:space:]]+commit;;(test-force|change|file)
@@ -163,39 +165,16 @@ normal_push.png|none|git[[:space:]]+push;;test-force;;(rejected|non-fast-forward
 force_push.png|none|git[[:space:]]+push;;test-force;;--force
 forked_gitea.png|username|(forked[[:space:]]+from|gitea);;(github|code|repository)
 codespace_loading.png|none|(codespace|setting[[:space:]]+up[[:space:]]+your[[:space:]]+codespace|opening[[:space:]]+remote)
-docker_up.png|none|docker[[:space:]]+compose;;up;;(running|started|created|gitea)
-gitea_install_page.png|none|gitea;;(initial[[:space:]]+configuration|installation|database[[:space:]]+settings)
-admin_setup.png|none|gitea;;(administrator|admin|account[[:space:]]+settings)
-gitea_dashboard.png|none|gitea;;(dashboard|repositories|activities|explore)
-gitea_new_repo.png|none|gitea;;(new[[:space:]]+repository|repository[[:space:]]+name|quick[[:space:]]+setup)
+docker_up.png|none|(docker[[:space:]]+compose|gitea|gitea_db|postgres);;(up|running|started|created|status|container)
+gitea_install_page.png|none|(gitea|initial[[:space:]]+configuration|database[[:space:]]+settings|environment[[:space:]]+configuration);;(install|configuration|database|server|administrator)
+admin_setup.png|none|(gitea|administrator|admin);;(username|account[[:space:]]+settings|password|install)
+gitea_dashboard.png|none|(issues|pull[[:space:]]+requests|milestones|explore|gitea);;(repositories|repository|activities|activity|contributions|organization)
+gitea_new_repo.png|none|(gitea|quick[[:space:]]+guide|clone[[:space:]]+this[[:space:]]+repository|new[[:space:]]+repository|repository[[:space:]]+name);;(code|issues|packages|wiki|settings|new[[:space:]]+file|upload[[:space:]]+file|clone)
 github_pages_repo.png|username|github[.]io;;(public|repository|quick[[:space:]]+setup)
 local_static_site.png|none|(index[.]html|html);;(css|javascript|js|portfolio|cv)
-push_static_site.png|username|git[[:space:]]+push;;github[.]io;;(main|objects|set[[:space:]]+up[[:space:]]+to[[:space:]]+track)
+push_static_site.png|none|git[[:space:]]+push;;(github[.]io|main|objects|up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track)
 github_pages_settings.png|username|(github[[:space:]]+pages|pages);;(published|site[[:space:]]+is[[:space:]]+live|github[.]io)
-live_site.png|username|(portfolio|curriculum|resume|cv|about|education|experience|projects)
-Q1_remote_edit.png|none|(github|readme);;(commit|remote)
-Q1_local_edit.png|none|(git[[:space:]]+commit|readme);;local
-Q1_push_error.png|none|git[[:space:]]+push;;(rejected|failed[[:space:]]+to[[:space:]]+push|fetch[[:space:]]+first)
-Q1_merge_resolution.png|none|git[[:space:]]+pull;;(merge|no-rebase);;git[[:space:]]+push
-Q1_rebase_resolution.png|none|git[[:space:]]+pull;;rebase;;git[[:space:]]+push
-Q2_remote_conflict_edit.png|none|(github|readme);;(conflict|remote);;commit
-Q2_local_conflict_edit.png|none|(readme|git[[:space:]]+commit);;(local|conflict)
-Q2_conflict_push_error.png|none|git[[:space:]]+push;;(rejected|failed[[:space:]]+to[[:space:]]+push|fetch[[:space:]]+first)
-Q2_rebase_conflict.png|none|git[[:space:]]+pull;;rebase;;conflict
-Q2_resolved_file.png|none|(readme|resolved);;(local|remote|conflict)
-Q2_resolution_complete.png|none|git[[:space:]]+(add|rebase);;(continue|push|main)
-Q3_folder_created.png|none|(docfiles|folder);;(mkdir|file|created)
-Q3_files_pushed.png|none|git[[:space:]]+push;;(docfiles|files|objects)
-Q3_gitignore_added.png|none|(gitignore|[.]gitignore);;docfiles
-Q3_gitignore_pushed.png|none|(gitignore|[.]gitignore);;git[[:space:]]+push
-Q3_folder_untracked.png|none|git[[:space:]]+rm;;--cached;;(docfiles|folder)
-Q3_folder_removed_github.png|none|(github|repository);;(docfiles|[.]gitignore)
-Q4_first_commit.png|none|git[[:space:]]+commit;;(commit|change)
-Q4_second_commit.png|none|git[[:space:]]+commit;;(second|commit|change)
-Q4_commit_history.png|none|git[[:space:]]+log;;oneline
-Q4_soft_reset.png|none|git[[:space:]]+reset;;--soft;;HEAD~1
-Q4_third_commit.png|none|git[[:space:]]+commit;;(third|commit|change)
-Q4_hard_reset.png|none|git[[:space:]]+reset;;--hard;;HEAD~1
+live_site.png|none|(portfolio|curriculum|resume|cv|about|education|experience|projects|github[.]io)
 EOF
 
 required_screenshots=${#criteria[@]}
@@ -264,9 +243,7 @@ groups = defaultdict(list)
 identity_files = {
     "forked_gitea.png",
     "github_pages_repo.png",
-    "push_static_site.png",
     "github_pages_settings.png",
-    "live_site.png",
 }
 
 for repository in root.glob("*/*"):
@@ -396,6 +373,8 @@ done
 
 # The README requires a Word report and either a PDF or a separate solution
 # Markdown file. README.md itself does not count as the solution Markdown file.
+# This file-presence check does not inspect or award marks for Exam Evaluation
+# answers or bonus work.
 mapfile -d '' word_reports < <(
   find "$submission_dir" -maxdepth 1 -type f \
     \( -iname '*.doc' -o -iname '*.docx' \) -size +0c -print0
