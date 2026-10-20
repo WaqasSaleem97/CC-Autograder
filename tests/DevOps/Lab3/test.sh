@@ -149,6 +149,7 @@ file_before_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|e
 soft_reset.png|none|git[[:space:]]+reset;;--soft;;HEAD~1
 log_after_soft_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|[0-9a-f]{5,40}|head|commit)
 file_after_soft_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit)
+file_before_hard_reset.png|none|(git[[:space:]]+commit|second[[:space:]]+test[[:space:]]+commit);;(files?[[:space:]]+changed|insertion|second[[:space:]]+test[[:space:]]+commit|[0-9a-f]{5,40})
 file_after_hard_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit|commit)
 hard_reset.png|none|git[[:space:]]+reset;;--hard;;HEAD~1
 log_after_hard_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|[0-9a-f]{5,40}|head|commit)
