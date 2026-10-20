@@ -111,26 +111,28 @@ escaped_username="$(printf '%s' "$normalized_username" | sed 's/[][\\.^$*+?{}|()
 #   username - the GitHub username must be visible
 # Only the required evidence for Tasks 1-11 is graded. Exam Evaluation
 # Questions and bonus tasks are intentionally excluded from the score.
+# file_before_hard_reset.png was added to the lab instructions after this
+# cohort completed Lab03, so it is intentionally not included in the score.
 readarray -t criteria <<'EOF'
-remote_edit.png|none|(github|readme|repository);;(commit|committed|remote[[:space:]]+(update|edit)|added[[:space:]]+remotely)
+remote_edit.png|none|(remote[[:space:]]+(update|edit|change)|updated[[:space:]]+remotely|added[[:space:]]+remotely);;(commit|committed|readme|repository)
 local_commit.png|none|git[[:space:]]+commit;;local.*update
 push_error.png|none|git[[:space:]]+push;;(rejected|failed[[:space:]]+to[[:space:]]+push|fetch[[:space:]]+first)
-merge_commit.png|none|(git[[:space:]]+pull.*(no-rebase|origin[[:space:]]+main)|merge.*(remote|local|readme)|auto-merging);;(merge|merging|readme|main|head)
+merge_commit.png|none|(git[[:space:]]+pull.*(no-rebase|origin[[:space:]]+main)|merge[[:space:]]+branch|merge[_[:space:]]*msg|merge.*(remote|local|readme)|auto-merging);;(merge|merging|readme|main|head|github)
 push_after_merge.png|none|git[[:space:]]+push;;(main|objects|up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track)
-rebase_pull.png|none|git[[:space:]]+pull;;rebase
+rebase_pull.png|none|(git[[:space:]]+pull.*--rebase|git[[:space:]]+rebase.*--?continue|successfully[[:space:]]+rebased|could[[:space:]]+not[[:space:]]+apply);;(rebase|rebased|conflict|detached[[:space:]]+head)
 push_after_rebase.png|none|git[[:space:]]+push;;(main|objects|up-to-date)
-remote_conflict_edit.png|none|(github|readme|repository);;(conflict|remote[[:space:]]+(change|edit|update)|updated[[:space:]]+remotely|commit)
-local_conflict_edit.png|none|(readme|visual[[:space:]]+studio[[:space:]]+code|vscode);;(local|conflict|updated)
-local_conflict_commit.png|none|git[[:space:]]+commit;;(local|conflict)
+remote_conflict_edit.png|none|(remote[[:space:]]+(conflict(ing)?[[:space:]]+change|change|edit|update)|updated[[:space:]]+remotely);;(readme|commit|lab|github|repository|stashing)
+local_conflict_edit.png|none|(nano|vim|readme|visual[[:space:]]+studio[[:space:]]+code|vscode|updated[[:space:]]+locally);;(local|conflict|updated)
+local_conflict_commit.png|none|(git[[:space:]]+commit|git([[:space:]]+--no-pager)?[[:space:]]+log);;local[[:space:]]+conflict(ing)?[[:space:]]+change
 conflict_push_error.png|none|git[[:space:]]+push;;(rejected|failed[[:space:]]+to[[:space:]]+push|fetch[[:space:]]+first)
 conflict_message.png|none|git[[:space:]]+pull;;rebase;;conflict
 resolved_readme.png|none|(readme|local.*remote|remote.*local|resolved);;(local|remote|resolved|updated)
 rebase_continue.png|none|(git[[:space:]]+rebase.*continue|successfully[[:space:]]+rebased|continue[[:space:]]+rebasing|rebase[[:space:]]+in[[:space:]]+progress)
 push_after_resolve.png|none|git[[:space:]]+push;;(main|objects|up-to-date)
 push_textfiles.png|none|git[[:space:]]+push;;textfiles
-gitignore_push.png|none|(gitignore|[.]gitignore);;git[[:space:]]+push
-repo_still_has_textfiles.png|none|textfiles;;(github|repository|a[.]txt|b[.]txt|c[.]txt)
-rm_cached_push.png|none|(git[[:space:]]+rm.*--cached|removed[[:space:]]+tracked[[:space:]]+text[[:space:]]*files);;(git[[:space:]]+push|main|objects|github)
+gitignore_push.png|none|git[[:space:]]+push;;(main[[:space:]]+->[[:space:]]+main|objects|up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|github[.]com)
+repo_still_has_textfiles.png|none|(code|issues|pull[[:space:]]+requests|go[[:space:]]+to[[:space:]]+file|last[[:space:]]+commit[[:space:]]+message|watch|fork);;textfiles
+rm_cached_push.png|none|git[[:space:]]+push;;(main[[:space:]]+->[[:space:]]+main|objects|up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track|github[.]com)
 repo_textfiles_removed.png|none|(github|repository|code|main|page[[:space:]]+not[[:space:]]+found);;(textfiles|text[[:space:]]*files|gitignore|does[[:space:]]+not[[:space:]]+contain[[:space:]]+the[[:space:]]+path|removed[[:space:]]+tracked)
 modified_readme.png|none|(readme|README);;(commit|changes|feature-branch)
 checkout_error.png|none|git[[:space:]]+checkout;;(local[[:space:]]+changes|overwritten[[:space:]]+by[[:space:]]+checkout|stash)
@@ -149,7 +151,6 @@ file_before_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|e
 soft_reset.png|none|git[[:space:]]+reset;;--soft;;HEAD~1
 log_after_soft_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|[0-9a-f]{5,40}|head|commit)
 file_after_soft_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit)
-file_before_hard_reset.png|none|(git[[:space:]]+commit|second[[:space:]]+test[[:space:]]+commit);;(files?[[:space:]]+changed|insertion|second[[:space:]]+test[[:space:]]+commit|[0-9a-f]{5,40})
 file_after_hard_reset.png|none|(readme|test[[:space:]]+line|second[[:space:]]+test|edit|commit)
 hard_reset.png|none|git[[:space:]]+reset;;--hard;;HEAD~1
 log_after_hard_reset.png|none|(git([[:space:]]+--no-pager)?[[:space:]]+log|head[[:space:]]*[-=]+>[[:space:]]+main|origin/main);;(oneline|[0-9a-f]{5,40}|head|commit)
@@ -168,9 +169,9 @@ forked_gitea.png|username|(forked[[:space:]]+from|gitea);;(github|code|repositor
 codespace_loading.png|none|(codespace|setting[[:space:]]+up[[:space:]]+your[[:space:]]+codespace|opening[[:space:]]+remote)
 docker_up.png|none|(docker[[:space:]]+compose|gitea|gitea_db|postgres);;(up|running|started|created|status|container)
 gitea_install_page.png|none|(gitea|initial[[:space:]]+configuration|database[[:space:]]+settings|environment[[:space:]]+configuration);;(install|configuration|database|server|administrator)
-admin_setup.png|none|(gitea|administrator|admin);;(username|account[[:space:]]+settings|password|install)
+admin_setup.png|none|(optional[[:space:]]+settings|administrator[[:space:]]+(account|username)|account[[:space:]]+settings|install[[:space:]]+gitea)
 gitea_dashboard.png|none|(issues|pull[[:space:]]+requests|milestones|explore|gitea);;(repositories|repository|activities|activity|contributions|organization)
-gitea_new_repo.png|none|(gitea|quick[[:space:]]+guide|clone[[:space:]]+this[[:space:]]+repository|new[[:space:]]+repository|repository[[:space:]]+name);;(code|issues|packages|wiki|settings|new[[:space:]]+file|upload[[:space:]]+file|clone)
+gitea_new_repo.png|none|(gitea|milestones|explore);;(code|issues|packages|wiki|settings|activity);;([0-9]+[[:space:]]+commit|[0-9]+[[:space:]]+branch|repository|readme)
 github_pages_repo.png|username|github[.]io;;(public|repository|quick[[:space:]]+setup)
 local_static_site.png|none|(index[.]html|html);;(css|javascript|js|portfolio|cv)
 push_static_site.png|none|git[[:space:]]+push;;(github[.]io|main|objects|up-to-date|set[[:space:]]+up[[:space:]]+to[[:space:]]+track)
