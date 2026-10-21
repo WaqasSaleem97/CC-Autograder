@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applicationDefault, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
-import { applyReviewDecisions, invalidReferenceReviewItems, resultKey, roundMark } from "./manual-review.js";
+import { applyReviewDecisions, invalidReferenceReviewItems, resultKey } from "./manual-review.js";
 import { canonicalScreenshotName } from "./screenshot-normalization.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,9 +13,7 @@ const gradingRunId = String(process.env.GRADING_RUN_ID || process.env.GITHUB_RUN
 
 if (!projectId) throw new Error("FIREBASE_PROJECT_ID is required.");
 if (!/^\d{1,30}$/.test(gradingRunId)) throw new Error("A numeric GRADING_RUN_ID or GITHUB_RUN_ID is required.");
-if (!["stage", "prepare", "prepare-lab3-pdf-correction", "complete", "complete-lab3-pdf-correction", "fail", "fail-lab3-pdf-correction"].includes(command)) {
-  throw new Error("Use: review-workflow.js stage|prepare|prepare-lab3-pdf-correction|complete|complete-lab3-pdf-correction|fail|fail-lab3-pdf-correction");
-}
+if (!["stage", "prepare", "complete", "fail"].includes(command)) throw new Error("Use: review-workflow.js stage|prepare|complete|fail");
 
 initializeApp({ credential: applicationDefault(), projectId });
 const db = getFirestore();
@@ -25,11 +23,8 @@ const envBoolean = (name) => String(process.env[name] || "").toLowerCase() === "
 
 if (command === "stage") await stageReview();
 if (command === "prepare") await prepareFinalization();
-if (command === "prepare-lab3-pdf-correction") await prepareLab3PdfCorrection();
 if (command === "complete") await completeFinalization();
-if (command === "complete-lab3-pdf-correction") await completeLab3PdfCorrection();
 if (command === "fail") await failFinalization();
-if (command === "fail-lab3-pdf-correction") await failLab3PdfCorrection();
 
 async function stageReview() {
   const results = readJson("results/grading-results.json");
@@ -205,97 +200,6 @@ async function prepareFinalization() {
   summary(`Prepared ${results.length} final result(s) from grading run ${gradingRunId}. All ${items.length} review decision(s) are resolved; ${referenceDeductions.length} invalid expected-image criterion deduction(s) were applied.`);
 }
 
-async function prepareLab3PdfCorrection() {
-  const requestedRegistrations = new Set(
-    String(process.env.CORRECTION_REGISTRATIONS || "")
-      .split(/[\s,;]+/)
-      .map((value) => value.trim().toUpperCase())
-      .filter(Boolean)
-  );
-  if (!requestedRegistrations.size) throw new Error("CORRECTION_REGISTRATIONS must contain at least one registration number.");
-
-  const [runSnapshot, resultSnapshot, itemSnapshot, criterionSnapshot] = await Promise.all([
-    runRef.get(),
-    runRef.collection("results").get(),
-    runRef.collection("items").get(),
-    runRef.collection("criteria").get()
-  ]);
-  if (!runSnapshot.exists) throw new Error(`Grading run ${gradingRunId} was not found.`);
-  const run = runSnapshot.data();
-  if (run.status !== "finalized") throw new Error("The grading run must be finalized before applying a published-mark correction.");
-  if (run.lab3_pdf_correction?.status === "completed") throw new Error("The Lab03 PDF correction has already been published for this grading run.");
-  if (String(run.config?.repositoryName || "").toLowerCase() !== "devops"
-    || String(run.config?.category || "").toLowerCase() !== "lab"
-    || String(run.config?.assessment || "").toLowerCase() !== "lab 3"
-    || String(run.config?.submissionPath || "").toLowerCase() !== "labs/lab03") {
-    throw new Error("The PDF correction is restricted to DevOps Lab 3 grading runs.");
-  }
-
-  const staged = resultSnapshot.docs.map((snapshot) => snapshot.data());
-  const items = itemSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
-  const criteria = criterionSnapshot.docs.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
-  if (items.length !== Number(run.item_count || 0)) throw new Error("The staged review queue is incomplete.");
-  if (criteria.length !== Number(run.criterion_count || 0)) throw new Error("The staged expected-image criteria are incomplete.");
-
-  const stagedByRegistration = new Map(staged.map((entry) => [
-    String(entry.student?.registration_number || entry.result?.registration_number || "").trim().toUpperCase(),
-    entry
-  ]));
-  const missing = [...requestedRegistrations].filter((registration) => !stagedByRegistration.has(registration));
-  if (missing.length) throw new Error(`Unknown registration number(s) for this grading run: ${missing.join(", ")}`);
-
-  const wordFailure = "submission report: non-empty Word file is missing (0)";
-  const selected = [...requestedRegistrations].map((registration) => stagedByRegistration.get(registration));
-  for (const entry of selected) {
-    if (!String(entry.result?.feedback || "").includes(wordFailure)) {
-      throw new Error(`${entry.student.registration_number} was not deducted for the obsolete Word-file criterion.`);
-    }
-  }
-
-  const referenceDeductions = invalidReferenceReviewItems(criteria);
-  const reviewedResults = applyReviewDecisions(staged.map((entry) => entry.result), [...items, ...referenceDeductions]);
-  const reviewedByKey = new Map(reviewedResults.map((result) => [resultKey(result), result]));
-  const correctedResults = selected.map((entry) => {
-    const result = { ...reviewedByKey.get(resultKey(entry.result)) };
-    if (!resultKey(result)) throw new Error(`Final reviewed result is missing for ${entry.student.registration_number}.`);
-    const denominatorMatch = String(entry.result.feedback || "").match(/Passed\s+\d+\/(\d+)\s+Lab 3 checks\./i);
-    const denominator = Number(denominatorMatch?.[1]);
-    if (!Number.isInteger(denominator) || denominator <= 0) throw new Error(`Could not derive the Lab03 criterion weight for ${entry.student.registration_number}.`);
-    const correctionPoints = Number(result.total) / denominator;
-    const previousObtained = Number(result.obtained);
-    result.obtained = roundMark(Math.min(Number(result.total), previousObtained + correctionPoints));
-    let detail = String(result.feedback || "")
-      .replace(/^Final score .*? after manual review\.\s*/i, "")
-      .replace(wordFailure, "submission report: passed after correction (valid PDF; Word file not required)");
-    result.feedback = `Final score ${result.obtained}/${result.total} after manual review and PDF-report correction. ${detail}`.trim();
-    result.review_required = false;
-    result.review_count = 0;
-    result.review_items = [];
-    return result;
-  });
-  const correctedStudents = selected.map((entry) => entry.student);
-
-  mkdirSync(path.join(root, "results"), { recursive: true });
-  mkdirSync(path.join(root, "config"), { recursive: true });
-  writeFileSync(path.join(root, "results/grading-results.json"), `${JSON.stringify(correctedResults, null, 2)}\n`);
-  writeFileSync(path.join(root, "results/students.json"), `${JSON.stringify(correctedStudents, null, 2)}\n`);
-  writeFileSync(path.join(root, "config/assignment.json"), `${JSON.stringify(run.config, null, 2)}\n`);
-
-  await runRef.update({
-    lab3_pdf_correction: {
-      status: "prepared",
-      registrations: [...requestedRegistrations].sort(),
-      result_count: correctedResults.length,
-      source_run_id: String(process.env.GITHUB_RUN_ID || ""),
-      reason: "Removed the obsolete Word-file requirement and restored the PDF report criterion for verified valid PDFs.",
-      prepared_at: FieldValue.serverTimestamp()
-    },
-    updated_at: FieldValue.serverTimestamp()
-  });
-  output("student_count", correctedResults.length);
-  summary(`Prepared the Lab03 PDF correction for ${correctedResults.length} student(s) from grading run ${gradingRunId}. No email will be sent.`);
-}
-
 async function completeFinalization() {
   const snapshot = await runRef.get();
   if (!snapshot.exists) throw new Error(`Grading run ${gradingRunId} was not found.`);
@@ -311,46 +215,12 @@ async function completeFinalization() {
   summary(`Grading run ${gradingRunId} is finalized.`);
 }
 
-async function completeLab3PdfCorrection() {
-  const snapshot = await runRef.get();
-  if (!snapshot.exists) throw new Error(`Grading run ${gradingRunId} was not found.`);
-  const correction = snapshot.data().lab3_pdf_correction;
-  if (!correction || correction.status !== "prepared") throw new Error("A prepared Lab03 PDF correction was not found.");
-  await runRef.update({
-    lab3_pdf_correction: {
-      ...correction,
-      status: "completed",
-      completed_by_run_id: String(process.env.GITHUB_RUN_ID || ""),
-      completed_at: FieldValue.serverTimestamp()
-    },
-    updated_at: FieldValue.serverTimestamp()
-  });
-  summary(`Published the Lab03 PDF correction for ${Number(correction.result_count || 0)} student(s) from grading run ${gradingRunId}.`);
-}
-
 async function failFinalization() {
   const snapshot = await runRef.get();
   if (!snapshot.exists || snapshot.data().status === "finalized") return;
   await runRef.update({
     status: "finalization_failed",
     finalization_error: String(process.env.FINALIZATION_ERROR || "The finalization workflow failed. Review its GitHub Actions log and retry.").slice(0, 1000),
-    updated_at: FieldValue.serverTimestamp()
-  });
-}
-
-async function failLab3PdfCorrection() {
-  const snapshot = await runRef.get();
-  if (!snapshot.exists) return;
-  const correction = snapshot.data().lab3_pdf_correction;
-  if (!correction || correction.status === "completed") return;
-  await runRef.update({
-    lab3_pdf_correction: {
-      ...correction,
-      status: "failed",
-      failure_run_id: String(process.env.GITHUB_RUN_ID || ""),
-      error: String(process.env.CORRECTION_ERROR || "The Lab03 PDF correction workflow failed. Review its GitHub Actions log and retry.").slice(0, 1000),
-      failed_at: FieldValue.serverTimestamp()
-    },
     updated_at: FieldValue.serverTimestamp()
   });
 }
