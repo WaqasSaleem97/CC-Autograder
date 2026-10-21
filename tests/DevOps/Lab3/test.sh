@@ -373,27 +373,33 @@ PY
   feedback+=("$filename: passed")
 done
 
-# The README requires a Word report and either a PDF or a separate solution
-# Markdown file. README.md itself does not count as the solution Markdown file.
-# This file-presence check does not inspect or award marks for Exam Evaluation
-# answers or bonus work.
-mapfile -d '' word_reports < <(
-  find "$submission_dir" -maxdepth 1 -type f \
-    \( -iname '*.doc' -o -iname '*.docx' \) -size +0c -print0
-)
-mapfile -d '' alternate_reports < <(
-  find "$submission_dir" -maxdepth 1 -type f \
-    \( -iname '*.pdf' -o -iname '*.md' \) \
-    ! -iname 'README.md' -size +0c -print0
-)
+# Lab03 requires one PDF solution report. Accept any case-insensitive PDF
+# filename in the submission root (including an accidental repeated .pdf
+# suffix), but reject empty or placeholder files that are not actual PDFs.
+valid_pdf_report=""
+while IFS= read -r -d '' candidate; do
+  if python3 - "$candidate" <<'PY'
+from pathlib import Path
+import sys
 
-if (( ${#word_reports[@]} == 0 )); then
-  feedback+=("submission report: non-empty Word file is missing (0)")
-elif (( ${#alternate_reports[@]} == 0 )); then
-  feedback+=("submission report: non-empty PDF or solution Markdown file is missing (0)")
-else
+try:
+    header = Path(sys.argv[1]).read_bytes()[:1024]
+except OSError:
+    raise SystemExit(1)
+
+raise SystemExit(0 if b"%PDF-" in header else 1)
+PY
+  then
+    valid_pdf_report="$candidate"
+    break
+  fi
+done < <(find "$submission_dir" -maxdepth 1 -type f -iname '*.pdf' -size +4c -print0)
+
+if [[ -n "$valid_pdf_report" ]]; then
   passed=$((passed + 1))
   feedback+=("submission report: passed")
+else
+  feedback+=("submission report: valid PDF solution file is missing (0)")
 fi
 
 required=$((required_screenshots + 1))

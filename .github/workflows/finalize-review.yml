@@ -3,9 +3,21 @@ name: Finalize reviewed grading results
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: "Choose whether to finalize review decisions or correct the obsolete DevOps Lab03 Word-file deduction"
+        required: true
+        default: finalize_review
+        type: choice
+        options:
+          - finalize_review
+          - correct_devops_lab03_pdf
       grading_run_id:
         description: "Original grading workflow run ID shown in the portal"
         required: true
+        type: string
+      correction_registrations:
+        description: "For the Lab03 PDF correction only: comma-separated registrations with verified valid PDFs"
+        required: false
         type: string
 
 permissions:
@@ -17,6 +29,7 @@ concurrency:
 
 jobs:
   finalize:
+    if: ${{ inputs.operation == 'finalize_review' }}
     name: Publish reviewed marks and email students
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -66,3 +79,41 @@ jobs:
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           GRADING_RUN_ID: ${{ inputs.grading_run_id }}
         run: node scripts/review-workflow.js fail
+
+  correct-devops-lab03-pdf:
+    if: ${{ inputs.operation == 'correct_devops_lab03_pdf' }}
+    name: Correct DevOps Lab03 PDF-report marks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Rebuild reviewed results and restore the PDF-report point
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+          CORRECTION_REGISTRATIONS: ${{ inputs.correction_registrations }}
+        run: node scripts/review-workflow.js prepare-lab3-pdf-correction
+      - name: Publish only the corrected marks to the portal
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: node scripts/update-firestore.js
+      - name: Record the completed correction
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+        run: node scripts/review-workflow.js complete-lab3-pdf-correction
+      - name: Record a recoverable correction failure
+        if: ${{ failure() }}
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          GRADING_RUN_ID: ${{ inputs.grading_run_id }}
+        run: node scripts/review-workflow.js fail-lab3-pdf-correction
