@@ -264,6 +264,48 @@ def extract_dark_panels(source: Image.Image) -> list[Image.Image]:
     return panels
 
 
+def extract_split_terminal_headers(source: Image.Image) -> list[Image.Image]:
+    """Prepare the top of terminal panes used beside GitHub browser pages.
+
+    Lab evidence often places a narrow Ubuntu terminal beside a much larger
+    browser page. Whole-image OCR can read the repository page while losing
+    the small ``username@ubuntu`` prompt. Restricting this pass to a distinct
+    dark pane avoids combining a GitHub page username with an unrelated
+    terminal identity and does not assume that the pane is on a fixed side.
+    """
+
+    width, _ = source.size
+    gray = source.convert("L")
+    headers: list[Image.Image] = []
+
+    for left, top, right, bottom in _dark_panel_bounds(source):
+        panel_width = right - left
+        panel_height = bottom - top
+        # A full-width dark GitHub theme is a browser page, not a separate
+        # terminal pane. Only process clearly split-screen layouts here.
+        if panel_width > width * 0.75:
+            continue
+
+        header_height = min(panel_height, max(70, round(panel_height * 0.22)))
+        header = gray.crop((left, top, right, top + header_height))
+        if ImageStat.Stat(header).mean[0] < 127:
+            header = ImageOps.invert(header)
+        header = ImageOps.autocontrast(header, cutoff=1)
+
+        scale = max(2, min(5, math.ceil(2400 / max(1, header.width))))
+        while scale > 1 and header.width * header.height * scale * scale > 8_000_000:
+            scale -= 1
+        if scale > 1:
+            header = header.resize(
+                (header.width * scale, header.height * scale),
+                Image.Resampling.LANCZOS,
+            )
+        headers.append(
+            ImageOps.expand(header.filter(ImageFilter.SHARPEN), border=12, fill="white")
+        )
+    return headers
+
+
 def extract_terminal_lines(source: Image.Image) -> Image.Image | None:
     """Build an OCR sheet from tiny text rows inside dark terminal panels.
 
@@ -410,6 +452,13 @@ def ocr_screenshot(source_path: Path) -> str:
                     panel_path = directory / "dark-panels.png"
                     panel_sheet.save(panel_path)
                     output.append(run_tesseract(panel_path, 6))
+
+        # Split-screen GitHub evidence needs one focused pass over only the
+        # terminal header so a small but readable identity prompt is retained.
+        for index, header in enumerate(extract_split_terminal_headers(source)):
+            header_path = directory / f"split-terminal-header-{index}.png"
+            header.save(header_path)
+            output.append(run_tesseract(header_path, 6))
 
         if alphanumeric_count < 160 and not re.search(
             r"(?:https?://|github|gitea|[.]io\b)", fast_text, re.IGNORECASE

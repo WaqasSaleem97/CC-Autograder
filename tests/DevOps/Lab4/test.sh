@@ -124,14 +124,14 @@ databases_fork.png|prompt|databases;;(fork(ed)?[[:space:]]+from|waqas[[:space:]]
 databases_clone.png|prompt|databases;;(git[[:space:]]+clone|cloning[[:space:]]+into)
 docker_installation.png|prompt|git[[:space:]]+version;;docker[[:space:]]+version;;docker[[:space:]]+compose[[:space:]]+version
 database_services.png|prompt|mysql;;mongo[._[:space:]-]*dev;;mongo[._[:space:]-]*test;;mongo[._[:space:]-]*prod;;(healthy|running|up)
-database_ports.png|prompt|3307;;27017;;27018;;27019
-mysql_hardcoded_connection.png|prompt|connected[[:space:]]+to[[:space:]]+mysql;;school[._[:space:]-]*mysql;;3307;;environment[[:space:]:=_-]*dev
+database_ports.png|prompt|33[0-9o@?]{0,2}7;;27[0o6@]17;;27[0o6@]18;;27[0o6@]19
+mysql_hardcoded_connection.png|prompt|connected[[:space:]]+to[[:space:]]+mysql;;school[._[:space:]-]*mysql;;server;;33[0-9o@?]{0,2}7;;environment[[:space:]:=_-]*dev
 mongo_hardcoded_connection.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*dev;;27017;;environment[[:space:]:=_-]*dev
 mongo_env_dev.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*dev;;27017;;environment[[:space:]:=_-]*dev
 mongo_env_test.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*test;;27018;;environment[[:space:]:=_-]*test
 mongo_env_prod.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*prod;;27019;;environment[[:space:]:=_-]*prod
 credential_files_created.png|prompt|credentials[._[:space:]-]*ini;;(cp[[:space:]]+-n|ls[[:space:]]+credentials[._[:space:]-]*ini)
-credential_file_permissions.png|prompt|600[[:space:]]+credentials[._[:space:]-]*ini;;(chmod|stat)
+credential_file_permissions.png|prompt|credentials[._[:space:]-]*ini;;(chmod|stat);;(6[0o@]{2}|-rw-{5,})
 mongo_file_dev.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*dev;;27017;;environment[[:space:]:=_-]*dev
 mongo_file_test.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*test;;27018;;environment[[:space:]:=_-]*test
 mongo_file_prod.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*prod;;27019;;environment[[:space:]:=_-]*prod
