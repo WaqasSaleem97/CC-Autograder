@@ -1,0 +1,416 @@
+#!/usr/bin/env bash
+set -u
+
+# Grade DevOps Lab 4 screenshot evidence and the required solution PDF.
+# Exam Evaluation screenshots and answers are intentionally not graded.
+#
+# Usage:
+#   test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME]
+#
+# GitHub Actions example:
+#   tests/DevOps/Lab4/test.sh \
+#     work/submissions/Student/DevOps/Labs/Lab04 \
+#     10
+
+json_error() {
+  node -e '
+    console.log(JSON.stringify({
+      score: 0,
+      feedback: process.argv[1]
+    }))
+  ' "$1"
+  exit 0
+}
+
+if [[ $# -lt 2 ]]; then
+  printf '%s\n' '{"score":0,"feedback":"Usage: test.sh SUBMISSION_DIRECTORY TOTAL_MARKS [GITHUB_USERNAME]"}'
+  exit 0
+fi
+
+submission_input="$1"
+total_marks="$2"
+
+for command in tesseract python3 git node sha256sum realpath xargs find grep sed awk tr cut sort; do
+  command -v "$command" >/dev/null 2>&1 || {
+    if command -v node >/dev/null 2>&1; then
+      json_error "Required grading tool is missing: $command"
+    fi
+    printf '%s\n' "{\"score\":0,\"feedback\":\"Required grading tool is missing: $command\"}"
+    exit 0
+  }
+done
+
+python3 - <<'PY' >/dev/null 2>&1 || json_error "Python Pillow is required for image validation and duplicate detection."
+from PIL import Image
+PY
+
+if ! python3 - "$total_marks" <<'PY' >/dev/null 2>&1
+from decimal import Decimal
+import sys
+
+value = Decimal(sys.argv[1])
+assert value > 0 and value.is_finite()
+PY
+then
+  json_error "TOTAL_MARKS must be a positive number."
+fi
+
+if [[ ! -d "$submission_input" ]]; then
+  json_error "Submission directory does not exist: $submission_input"
+fi
+
+submission_dir="$(realpath "$submission_input")"
+grader_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+screenshots_dir="$submission_dir/screenshots"
+
+# Be tolerant of Screenshots/screenshots capitalization when the grader is run
+# manually. The normal grading pipeline already normalizes this directory.
+if [[ ! -d "$screenshots_dir" ]]; then
+  mapfile -d '' screenshot_directories < <(
+    find "$submission_dir" -mindepth 1 -maxdepth 1 -type d -iname screenshots -print0
+  )
+  if (( ${#screenshot_directories[@]} == 1 )); then
+    screenshots_dir="${screenshot_directories[0]}"
+  elif (( ${#screenshot_directories[@]} > 1 )); then
+    json_error "Multiple screenshots directories differ only by capitalization in Labs/Lab04."
+  else
+    json_error "Required directory is missing: Labs/Lab04/screenshots"
+  fi
+fi
+
+# Username priority:
+# 1. Third command-line argument
+# 2. STUDENT_GITHUB_USERNAME environment variable
+# 3. Owner name from the cloned repository origin URL
+provided_username="${3:-${STUDENT_GITHUB_USERNAME:-}}"
+
+if [[ -n "$provided_username" ]]; then
+  github_username="$provided_username"
+else
+  remote_url="$(git -C "$submission_dir" remote get-url origin 2>/dev/null || true)"
+  github_username="$(
+    printf '%s' "$remote_url" |
+      sed -E 's#.*github\.com[:/]([^/]+)/.*#\1#; s#\.git$##'
+  )"
+fi
+
+github_username="$(
+  printf '%s' "$github_username" |
+    sed -E \
+      -e 's#^https?://([^/]+@)?github\.com/##I' \
+      -e 's#^git@github\.com:##I' \
+      -e 's#/.*$##' \
+      -e 's#^@##' \
+      -e 's#\.git$##I' \
+      -e 's/^[[:space:]]+//' \
+      -e 's/[[:space:]]+$//'
+)"
+
+if [[ ! "$github_username" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]] || [[ "$github_username" == *--* ]]; then
+  json_error "A valid GitHub username was not provided and could not be detected from the repository origin."
+fi
+
+normalized_username="$(printf '%s' "$github_username" | tr '[:upper:]' '[:lower:]')"
+
+# This list matches the 15 mandatory screenshots in
+# DevOps_F26/Labs/Lab04/README.md. Every line is:
+# filename|identity requirement|required OCR expressions separated by ;;
+#
+# All screenshots require the registered <GitHub username>@ubuntu prompt.
+# For the GitHub fork page, the lab requires a split-screen terminal prompt.
+# Q1/Q2/Q3 Exam Evaluation screenshots are intentionally excluded.
+readarray -t criteria <<'EOF'
+databases_fork.png|prompt|databases;;(fork(ed)?[[:space:]]+from|waqas[[:space:]]*saleem|waqassaleem97)
+databases_clone.png|prompt|databases;;(git[[:space:]]+clone|cloning[[:space:]]+into)
+docker_installation.png|prompt|git[[:space:]]+version;;docker[[:space:]]+version;;docker[[:space:]]+compose[[:space:]]+version
+database_services.png|prompt|mysql;;mongo[._[:space:]-]*dev;;mongo[._[:space:]-]*test;;mongo[._[:space:]-]*prod;;(healthy|running|up)
+database_ports.png|prompt|3307;;27017;;27018;;27019
+mysql_hardcoded_connection.png|prompt|connected[[:space:]]+to[[:space:]]+mysql;;school[._[:space:]-]*mysql;;3307;;environment[[:space:]:=_-]*dev
+mongo_hardcoded_connection.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*dev;;27017;;environment[[:space:]:=_-]*dev
+mongo_env_dev.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*dev;;27017;;environment[[:space:]:=_-]*dev
+mongo_env_test.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*test;;27018;;environment[[:space:]:=_-]*test
+mongo_env_prod.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*prod;;27019;;environment[[:space:]:=_-]*prod
+credential_files_created.png|prompt|credentials[._[:space:]-]*ini;;(cp[[:space:]]+-n|ls[[:space:]]+credentials[._[:space:]-]*ini)
+credential_file_permissions.png|prompt|600[[:space:]]+credentials[._[:space:]-]*ini;;(chmod|stat)
+mongo_file_dev.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*dev;;27017;;environment[[:space:]:=_-]*dev
+mongo_file_test.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*test;;27018;;environment[[:space:]:=_-]*test
+mongo_file_prod.png|prompt|connected[[:space:]]+to[[:space:]]+mongo(db)?;;school[._[:space:]-]*prod;;27019;;environment[[:space:]:=_-]*prod
+EOF
+
+required_screenshots=${#criteria[@]}
+if (( required_screenshots != 15 )); then
+  json_error "Trusted Lab 4 grader configuration must contain exactly 15 mandatory screenshot checks."
+fi
+
+# Resolve screenshots by filename stem. Capitalization and image extensions,
+# including accidental repeated extensions such as .png.png, are ignored.
+expected_screenshots=()
+for rule in "${criteria[@]}"; do
+  expected_screenshots+=("${rule%%|*}")
+done
+
+declare -A resolved_screenshots
+while IFS=$'\t' read -r expected actual; do
+  resolved_screenshots["$expected"]="$actual"
+done < <(
+  python3 "$grader_root/scripts/resolve_screenshots.py" \
+    "$screenshots_dir" "${expected_screenshots[@]}"
+)
+
+# OCR the required screenshots concurrently. OCR_JOBS may request fewer
+# workers but cannot exceed the runner's available CPUs or eight workers.
+ocr_dir="$(mktemp -d "/tmp/lab4-ocr-${normalized_username}.XXXXXX")"
+cleanup() {
+  rm -rf -- "$ocr_dir"
+}
+trap cleanup EXIT
+
+available_cpus="$(nproc 2>/dev/null || true)"
+if [[ ! "$available_cpus" =~ ^[1-9][0-9]*$ ]]; then
+  available_cpus=2
+fi
+
+ocr_jobs="${OCR_JOBS:-$available_cpus}"
+if [[ ! "$ocr_jobs" =~ ^[1-9][0-9]*$ ]]; then
+  ocr_jobs="$available_cpus"
+fi
+if (( ocr_jobs > available_cpus )); then
+  ocr_jobs="$available_cpus"
+fi
+if (( ocr_jobs > 8 )); then
+  ocr_jobs=8
+fi
+
+for rule in "${criteria[@]}"; do
+  filename="${rule%%|*}"
+  image="${resolved_screenshots[$filename]:-}"
+  [[ -f "$image" ]] && printf '%s\0%s\0' "$filename" "$image"
+done |
+  xargs -0 -r -P "$ocr_jobs" -n 2 \
+    bash -c '
+      ocr_dir="$1"
+      helper="$2"
+      filename="$3"
+      source_image="$4"
+      python3 "$helper" "$source_image" "$ocr_dir/${filename%.*}.txt"
+    ' _ "$ocr_dir" "$grader_root/scripts/ocr_screenshot.py"
+
+# Compare the same task between students in this grading run. Exact duplicate
+# files are rejected for every criterion. Perceptual comparison is limited to
+# the fork identity screenshot to avoid false positives from similar terminal
+# output while still detecting slightly edited copies of identity evidence.
+repo_root="$(git -C "$submission_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+duplicate_index=""
+
+if [[ -n "$repo_root" && "$screenshots_dir" == "$repo_root"/* ]]; then
+  submissions_root="$(dirname "$(dirname "$repo_root")")"
+  relative_screenshots="${screenshots_dir#"$repo_root"/}"
+  duplicate_key="$(printf '%s' "$submissions_root|$relative_screenshots" | sha256sum | cut -c1-16)"
+  duplicate_index="/tmp/lab4-duplicate-images-${duplicate_key}.tsv"
+
+  if [[ ! -f "$duplicate_index" ]]; then
+    python3 - "$submissions_root" "$relative_screenshots" "$duplicate_index" <<'PY'
+import hashlib
+import itertools
+import pathlib
+import sys
+from collections import defaultdict
+from PIL import Image, ImageOps
+
+root = pathlib.Path(sys.argv[1]).resolve()
+relative = pathlib.PurePosixPath(sys.argv[2])
+output = pathlib.Path(sys.argv[3])
+groups = defaultdict(list)
+image_extensions = (".jpeg", ".jpg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif")
+
+def filename_key(name):
+    value = name.casefold().rstrip(".")
+    while True:
+        for extension in image_extensions:
+            if value.endswith(extension):
+                value = value[:-len(extension)].rstrip(".")
+                break
+        else:
+            return value
+
+for repository in root.glob("*/*"):
+    screenshot_dir = repository.joinpath(*relative.parts)
+    if not screenshot_dir.is_dir():
+        continue
+    for image in screenshot_dir.iterdir():
+        if image.is_file():
+            groups[filename_key(image.name)].append(image.resolve())
+
+def dhash(path):
+    with Image.open(path) as source:
+        image = ImageOps.exif_transpose(source).convert("L").resize((9, 8))
+        if hasattr(image, "get_flattened_data"):
+            pixels = list(image.get_flattened_data())
+        else:
+            pixels = list(image.getdata())
+    value = 0
+    for row in range(8):
+        for column in range(8):
+            value = (value << 1) | (
+                pixels[row * 9 + column] > pixels[row * 9 + column + 1]
+            )
+    return value
+
+duplicates = {}
+for filename, paths in groups.items():
+    fingerprints = {}
+    for image in paths:
+        try:
+            fingerprints[image] = (hashlib.sha256(image.read_bytes()).hexdigest(), dhash(image))
+        except Exception:
+            continue
+
+    for left, right in itertools.combinations(fingerprints, 2):
+        left_sha, left_dhash = fingerprints[left]
+        right_sha, right_dhash = fingerprints[right]
+        if left_sha == right_sha:
+            reason = "exact duplicate of another student's same task"
+            duplicates[left] = reason
+            duplicates[right] = reason
+        elif filename == "databases_fork" and (left_dhash ^ right_dhash).bit_count() <= 2:
+            reason = "near-duplicate of another student's identity evidence"
+            duplicates[left] = reason
+            duplicates[right] = reason
+
+output.write_text(
+    "".join(f"{path}\t{reason}\n" for path, reason in sorted(duplicates.items())),
+    encoding="utf-8",
+)
+PY
+  fi
+fi
+
+passed=0
+feedback=()
+
+for rule in "${criteria[@]}"; do
+  filename="${rule%%|*}"
+  remainder="${rule#*|}"
+  identity_requirement="${remainder%%|*}"
+  evidence_groups="${remainder#*|}"
+  image="${resolved_screenshots[$filename]:-}"
+
+  if [[ "$image" == "__AMBIGUOUS__" ]]; then
+    feedback+=("$filename: multiple files have this name when extensions are ignored (0)")
+    continue
+  fi
+
+  if [[ -z "$image" || ! -f "$image" ]]; then
+    feedback+=("$filename: missing (0)")
+    continue
+  fi
+
+  # Verify that Pillow can decode the image. No minimum-dimension rule is used.
+  if ! python3 - "$image" <<'PY' >/dev/null 2>&1
+from PIL import Image
+import sys
+
+with Image.open(sys.argv[1]) as image:
+    image.verify()
+PY
+  then
+    feedback+=("$filename: invalid or corrupt image (0)")
+    continue
+  fi
+
+  canonical_image="$(realpath "$image")"
+  if [[ -n "$duplicate_index" && -s "$duplicate_index" ]]; then
+    duplicate_reason="$(awk -F '\t' -v path="$canonical_image" '$1 == path {print $2; exit}' "$duplicate_index")"
+    if [[ -n "$duplicate_reason" ]]; then
+      feedback+=("$filename: $duplicate_reason (0)")
+      continue
+    fi
+  fi
+
+  ocr_file="$ocr_dir/${filename%.*}.txt"
+  ocr_text=""
+  if [[ -f "$ocr_file" ]]; then
+    ocr_text="$(tr '[:upper:]' '[:lower:]' < "$ocr_file")"
+  fi
+
+  if [[ -z "${ocr_text//[[:space:]]/}" ]]; then
+    feedback+=("$filename: unreadable OCR (0)")
+    continue
+  fi
+
+  if [[ "$identity_requirement" == "prompt" ]]; then
+    if ! python3 "$grader_root/scripts/ocr_evidence.py" \
+      prompt "$normalized_username" "$ocr_file"; then
+      feedback+=("$filename: ${github_username}@ubuntu prompt was not clearly detected (0)")
+      continue
+    fi
+  fi
+
+  evidence_ok=true
+  while IFS= read -r evidence_pattern; do
+    [[ -z "$evidence_pattern" ]] && continue
+    if ! grep -Eqi -- "$evidence_pattern" <<<"$ocr_text"; then
+      evidence_ok=false
+      break
+    fi
+  done < <(printf '%s' "$evidence_groups" | sed 's/;;/\n/g')
+
+  if [[ "$evidence_ok" != true ]]; then
+    feedback+=("$filename: required task evidence was not detected (0)")
+    continue
+  fi
+
+  passed=$((passed + 1))
+  feedback+=("$filename: passed")
+done
+
+# The solution report is one additional equal-weight deliverable. Its contents
+# are not inspected, so Exam Evaluation answers do not affect the score.
+valid_pdf_report=""
+while IFS= read -r -d '' candidate; do
+  if python3 - "$candidate" <<'PY'
+from pathlib import Path
+import sys
+
+try:
+    data = Path(sys.argv[1]).read_bytes()
+except OSError:
+    raise SystemExit(1)
+
+raise SystemExit(0 if len(data) >= 1024 and b"%PDF-" in data[:1024] else 1)
+PY
+  then
+    valid_pdf_report="$candidate"
+    break
+  fi
+done < <(find "$submission_dir" -maxdepth 1 -type f -iname '*.pdf' -print0)
+
+if [[ -n "$valid_pdf_report" ]]; then
+  passed=$((passed + 1))
+  feedback+=("Lab4 solution PDF: passed")
+else
+  feedback+=("Lab4 solution PDF: valid PDF is missing (0)")
+fi
+
+required=$((required_screenshots + 1))
+
+score="$(python3 - "$passed" "$required" "$total_marks" <<'PY'
+from decimal import Decimal, ROUND_HALF_UP
+import sys
+
+passed, required, total = map(Decimal, sys.argv[1:])
+value = (passed / required * total).quantize(
+    Decimal("0.01"),
+    rounding=ROUND_HALF_UP,
+)
+print(value)
+PY
+)"
+
+summary="Passed $passed/$required Lab 4 checks (15 screenshots and 1 solution PDF). $(IFS='; '; echo "${feedback[*]}")"
+node -e '
+  console.log(JSON.stringify({
+    score: Number(process.argv[1]),
+    feedback: process.argv[2]
+  }))
+' "$score" "$summary"
