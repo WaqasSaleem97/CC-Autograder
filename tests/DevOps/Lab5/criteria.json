@@ -1,0 +1,650 @@
+{
+  "lab": 5,
+  "source_url": "https://github.com/WaqasSaleem97/DevOps_F26/blob/a4e0d5bac6b167e0663b013e8bf23058d833f613/Labs/Lab05/README.md",
+  "source_commit": "a4e0d5bac6b167e0663b013e8bf23058d833f613",
+  "screenshot_count": 37,
+  "solution_pdf": "Lab5_Solution.pdf",
+  "scoring": "Each required screenshot and the valid solution PDF is one equal-weight check.",
+  "screenshots": [
+    {
+      "filename": "intellij_repo_clone.png",
+      "task": 1,
+      "label": "Clone the IntelliJ Docker repository",
+      "required": [
+        {
+          "label": "git clone command",
+          "pattern": "git\\s+clone"
+        },
+        {
+          "label": "Intellij-Idea-docker repository",
+          "pattern": "github[.]com/WaqasSaleem97/Intellij-Idea-docker"
+        },
+        {
+          "label": "Successful clone output",
+          "pattern": "Cloning\\s+into|Receiving\\s+objects|Resolving\\s+deltas|done[.]"
+        }
+      ]
+    },
+    {
+      "filename": "intellij_running.png",
+      "task": 1,
+      "label": "Launch the IntelliJ desktop",
+      "required": [
+        {
+          "label": "docker compose ps command",
+          "pattern": "docker\\s+compose\\s+ps"
+        },
+        {
+          "label": "intellij service",
+          "pattern": "intellij"
+        },
+        {
+          "label": "Running service",
+          "pattern": "\\bUp\\b|\\brunning\\b"
+        },
+        {
+          "label": "Published desktop port 3001",
+          "pattern": "3001"
+        }
+      ]
+    },
+    {
+      "filename": "intellij_desktop.png",
+      "task": 1,
+      "label": "IntelliJ Welcome screen in the browser desktop",
+      "required": [
+        {
+          "label": "IntelliJ application",
+          "pattern": "IntelliJ\\s+IDEA"
+        },
+        {
+          "label": "Welcome screen",
+          "pattern": "Welcome|New\\s+Project|Clone\\s+Repository"
+        },
+        {
+          "label": "Browser desktop port",
+          "pattern": "localhost:3001|127[.]0[.]0[.]1:3001"
+        }
+      ]
+    },
+    {
+      "filename": "maven_project_clone.png",
+      "task": 2,
+      "label": "Clone the Maven project",
+      "required": [
+        {
+          "label": "Clone Repository / Get from Version Control dialog",
+          "pattern": "clone\\s+repository|repository\\s+url|get\\s+from\\s+version\\s+control"
+        },
+        {
+          "label": "Source repository URL",
+          "pattern": "gitlab\\.com/nanuchi/java-maven-app(?:\\.git)?"
+        },
+        {
+          "label": "Destination under /config/IdeaProjects",
+          "pattern": "/config/IdeaProjects/java-maven-app"
+        }
+      ]
+    },
+    {
+      "filename": "maven_installed.png",
+      "task": 2,
+      "label": "Maven installation and version",
+      "required": [
+        {
+          "label": "mvn --version command",
+          "pattern": "\\bmvn\\s+(?:--version|-v)\\b"
+        },
+        {
+          "label": "Installed Maven version",
+          "pattern": "Apache\\s+Maven\\s+\\d+[.]\\d+"
+        }
+      ]
+    },
+    {
+      "filename": "maven_package.png",
+      "task": 2,
+      "label": "Package the Maven application",
+      "required": [
+        {
+          "label": "mvn package command",
+          "pattern": "\\bmvn\\s+package\\b"
+        },
+        {
+          "label": "Maven BUILD SUCCESS",
+          "pattern": "\\bBUILD\\s+SUCCESS\\b(?!FUL)"
+        }
+      ]
+    },
+    {
+      "filename": "maven_elasticsearch_dependency.png",
+      "task": 2,
+      "label": "Elasticsearch dependency in Maven and synchronized library",
+      "required": [
+        {
+          "label": "pom.xml",
+          "pattern": "pom[.]xml"
+        },
+        {
+          "label": "Elasticsearch group",
+          "pattern": "org[.]elasticsearch"
+        },
+        {
+          "label": "Elasticsearch artifact",
+          "pattern": "elasticsearch"
+        },
+        {
+          "label": "Dependency version 7.0.0",
+          "pattern": "7[.]0[.]0"
+        },
+        {
+          "label": "Compile scope",
+          "pattern": "compile"
+        },
+        {
+          "label": "Synchronized dependency/library view",
+          "pattern": "Dependencies|External\\s+Libraries|Maven:\\s*org[.]elasticsearch"
+        }
+      ]
+    },
+    {
+      "filename": "maven_repackage.png",
+      "task": 2,
+      "label": "Package the Maven application",
+      "required": [
+        {
+          "label": "mvn package command",
+          "pattern": "\\bmvn\\s+package\\b"
+        },
+        {
+          "label": "Maven BUILD SUCCESS",
+          "pattern": "\\bBUILD\\s+SUCCESS\\b(?!FUL)"
+        }
+      ]
+    },
+    {
+      "filename": "maven_test.png",
+      "task": 2,
+      "label": "Run Maven tests",
+      "required": [
+        {
+          "label": "mvn test command",
+          "pattern": "\\bmvn\\s+test\\b"
+        },
+        {
+          "label": "Maven BUILD SUCCESS",
+          "pattern": "\\bBUILD\\s+SUCCESS\\b(?!FUL)"
+        },
+        {
+          "label": "Actual test-phase result",
+          "pattern": "No\\s+tests\\s+to\\s+run|Tests\\s+run|maven-surefire-plugin|\\bsurefire\\b"
+        }
+      ]
+    },
+    {
+      "filename": "maven_jar.png",
+      "task": 2,
+      "label": "Generated Maven JAR",
+      "required": [
+        {
+          "label": "target output directory",
+          "pattern": "\\btarget\\b"
+        },
+        {
+          "label": "Maven JAR filename",
+          "pattern": "java-maven-app-1[.]1[.]0-SNAPSHOT[.]jar"
+        }
+      ]
+    },
+    {
+      "filename": "maven_running.png",
+      "task": 2,
+      "label": "Run the Maven JAR",
+      "required": [
+        {
+          "label": "java -jar command and Maven artifact",
+          "pattern": "java\\s+-jar\\s+target/java-maven-app-1[.]1[.]0-SNAPSHOT[.]jar"
+        },
+        {
+          "label": "Successful Spring Boot / Tomcat startup",
+          "pattern": "Tomcat\\s+started|Started\\s+\\S+.*\\bin\\s+[\\d.]+\\s+seconds|Started.*Application"
+        }
+      ]
+    },
+    {
+      "filename": "maven_stopped.png",
+      "task": 2,
+      "label": "Stop the Maven application",
+      "required": [
+        {
+          "label": "Ctrl+C or shutdown output",
+          "pattern": "\\^C|shutting\\s+down|shutdown|Stopping\\s+service"
+        }
+      ]
+    },
+    {
+      "filename": "maven_project_closed.png",
+      "task": 2,
+      "label": "Close the Maven project",
+      "required": [
+        {
+          "label": "IntelliJ Welcome screen",
+          "pattern": "Welcome\\s+to\\s+IntelliJ|IntelliJ\\s+IDEA"
+        },
+        {
+          "label": "Welcome actions after closing the project",
+          "pattern": "New\\s+Project"
+        },
+        {
+          "label": "Open or Clone Repository action",
+          "pattern": "Clone\\s+Repository|Get\\s+from\\s+Version\\s+Control|\\bOpen\\b"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_project_clone.png",
+      "task": 3,
+      "label": "Clone the Gradle project",
+      "required": [
+        {
+          "label": "Clone Repository / Get from Version Control dialog",
+          "pattern": "clone\\s+repository|repository\\s+url|get\\s+from\\s+version\\s+control"
+        },
+        {
+          "label": "Source repository URL",
+          "pattern": "gitlab\\.com/nanuchi/java-app(?:\\.git)?"
+        },
+        {
+          "label": "Destination under /config/IdeaProjects",
+          "pattern": "/config/IdeaProjects/java-app"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_build.png",
+      "task": 3,
+      "label": "Build the Gradle application",
+      "required": [
+        {
+          "label": "./gradlew build command",
+          "pattern": "[.]/gradlew\\s+build\\b"
+        },
+        {
+          "label": "Gradle BUILD SUCCESSFUL",
+          "pattern": "\\bBUILD\\s+SUCCESSFUL\\b"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_elasticsearch_dependency.png",
+      "task": 3,
+      "label": "Elasticsearch dependency in Gradle and synchronized library",
+      "required": [
+        {
+          "label": "build.gradle",
+          "pattern": "build[.]gradle"
+        },
+        {
+          "label": "implementation dependency declaration",
+          "pattern": "\\bimplementation\\b"
+        },
+        {
+          "label": "Elasticsearch group/artifact",
+          "pattern": "org[.]elasticsearch\\s*:\\s*elasticsearch"
+        },
+        {
+          "label": "Version 7.0.0",
+          "pattern": "7[.]0[.]0"
+        },
+        {
+          "label": "Synchronized library view",
+          "pattern": "External\\s+Libraries|Gradle:\\s*org[.]elasticsearch"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_rebuild.png",
+      "task": 3,
+      "label": "Build the Gradle application",
+      "required": [
+        {
+          "label": "./gradlew build command",
+          "pattern": "[.]/gradlew\\s+build\\b"
+        },
+        {
+          "label": "Gradle BUILD SUCCESSFUL",
+          "pattern": "\\bBUILD\\s+SUCCESSFUL\\b"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_jar.png",
+      "task": 3,
+      "label": "Generated Gradle JAR",
+      "required": [
+        {
+          "label": "build/libs output directories",
+          "pattern": "\\bbuild\\b[\\s\\S]*\\blibs\\b"
+        },
+        {
+          "label": "Gradle JAR filename",
+          "pattern": "java-app-1[.]0-SNAPSHOT[.]jar"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_running.png",
+      "task": 3,
+      "label": "Run the Gradle JAR",
+      "required": [
+        {
+          "label": "java -jar command and Gradle artifact",
+          "pattern": "java\\s+-jar\\s+build/libs/java-app-1[.]0-SNAPSHOT[.]jar"
+        },
+        {
+          "label": "Successful Spring Boot / Tomcat startup",
+          "pattern": "Tomcat\\s+started|Started\\s+\\S+.*\\bin\\s+[\\d.]+\\s+seconds|Started.*Application"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_stopped.png",
+      "task": 3,
+      "label": "Stop the Gradle application",
+      "required": [
+        {
+          "label": "Ctrl+C or shutdown output",
+          "pattern": "\\^C|shutting\\s+down|shutdown|Stopping\\s+service"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_project_closed.png",
+      "task": 3,
+      "label": "Close the Gradle project",
+      "required": [
+        {
+          "label": "IntelliJ Welcome screen",
+          "pattern": "Welcome\\s+to\\s+IntelliJ|IntelliJ\\s+IDEA"
+        },
+        {
+          "label": "Welcome actions after closing the project",
+          "pattern": "New\\s+Project"
+        },
+        {
+          "label": "Open or Clone Repository action",
+          "pattern": "Clone\\s+Repository|Get\\s+from\\s+Version\\s+Control|\\bOpen\\b"
+        }
+      ]
+    },
+    {
+      "filename": "node_project_clone.png",
+      "task": 4,
+      "label": "Clone the Node.js project",
+      "required": [
+        {
+          "label": "Clone Repository / Get from Version Control dialog",
+          "pattern": "clone\\s+repository|repository\\s+url|get\\s+from\\s+version\\s+control"
+        },
+        {
+          "label": "Source repository URL",
+          "pattern": "gitlab\\.com/devopsbootcamp3/node-project(?:\\.git)?"
+        },
+        {
+          "label": "Destination under /config/IdeaProjects",
+          "pattern": "/config/IdeaProjects/node-project"
+        }
+      ]
+    },
+    {
+      "filename": "nodejs_installed.png",
+      "task": 4,
+      "label": "Node.js and npm versions",
+      "required": [
+        {
+          "label": "node --version command and version",
+          "pattern": "node\\s+(?:--version|-v)[\\s\\S]*?\\bv?\\d+[.]\\d+[.]\\d+"
+        },
+        {
+          "label": "npm --version command and version",
+          "pattern": "npm\\s+(?:--version|-v)[\\s\\S]*?\\b\\d+[.]\\d+[.]\\d+"
+        }
+      ]
+    },
+    {
+      "filename": "npm_install.png",
+      "task": 4,
+      "label": "Install Node.js app dependencies",
+      "required": [
+        {
+          "label": "npm install command",
+          "pattern": "npm\\s+install"
+        },
+        {
+          "label": "Completed dependency installation",
+          "pattern": "added\\s+\\d+.*packages|up\\s+to\\s+date|audited\\s+\\d+\\s+packages"
+        }
+      ]
+    },
+    {
+      "filename": "node_running.png",
+      "task": 4,
+      "label": "Node.js application listening on port 4000",
+      "required": [
+        {
+          "label": "npm start command",
+          "pattern": "npm\\s+start"
+        },
+        {
+          "label": "Application listening on port 4000",
+          "pattern": "app\\s+listening\\s+on\\s+port\\s+4000"
+        }
+      ]
+    },
+    {
+      "filename": "node_browser.png",
+      "task": 4,
+      "label": "Node.js profile page at localhost:4000",
+      "required": [
+        {
+          "label": "Container browser URL port 4000",
+          "pattern": "(?:localhost|127[.]0[.]0[.]1):4000"
+        },
+        {
+          "label": "Profile-page content",
+          "pattern": "profile|username|birth|interests|edit\\s+profile|name\\s*:|User\\s+Profile"
+        }
+      ]
+    },
+    {
+      "filename": "npm_test.png",
+      "task": 4,
+      "label": "Passing npm/Jest tests",
+      "required": [
+        {
+          "label": "npm test command",
+          "pattern": "npm\\s+test"
+        },
+        {
+          "label": "Passing Jest result",
+          "pattern": "\\bPASS\\b|Test\\s+Suites:\\s*\\d+\\s+passed|Tests:\\s*\\d+\\s+passed"
+        }
+      ]
+    },
+    {
+      "filename": "npm_pack.png",
+      "task": 4,
+      "label": "Create Node.js tarball",
+      "required": [
+        {
+          "label": "npm pack command",
+          "pattern": "npm\\s+pack"
+        },
+        {
+          "label": "Generated tarball filename",
+          "pattern": "bootcamp-node-project-1[.]0[.]0[.]tgz"
+        }
+      ]
+    },
+    {
+      "filename": "react_node_project_clone.png",
+      "task": 5,
+      "label": "Clone React/Node.js example",
+      "required": [
+        {
+          "label": "Clone Repository / Get from Version Control dialog",
+          "pattern": "clone\\s+repository|repository\\s+url|get\\s+from\\s+version\\s+control"
+        },
+        {
+          "label": "Source repository URL",
+          "pattern": "github\\.com/bbachi/react-nodejs-example(?:\\.git)?"
+        },
+        {
+          "label": "Destination under /config/IdeaProjects",
+          "pattern": "/config/IdeaProjects/react-nodejs-example"
+        }
+      ]
+    },
+    {
+      "filename": "react_api_dependencies.png",
+      "task": 5,
+      "label": "Install API dependencies",
+      "required": [
+        {
+          "label": "npm install command",
+          "pattern": "npm\\s+install"
+        },
+        {
+          "label": "Successful installation",
+          "pattern": "added\\s+\\d+.*packages|up\\s+to\\s+date|audited\\s+\\d+\\s+packages"
+        },
+        {
+          "label": "api directory",
+          "pattern": "\\bapi\\b"
+        },
+        {
+          "label": "node_modules directory",
+          "pattern": "node_modules"
+        }
+      ]
+    },
+    {
+      "filename": "react_api_build.png",
+      "task": 5,
+      "label": "Build webpack API bundle",
+      "required": [
+        {
+          "label": "npm run build command",
+          "pattern": "npm\\s+run\\s+build"
+        },
+        {
+          "label": "webpack build result",
+          "pattern": "webpack[\\s\\S]*(?:compiled|built|Hash:|Version:)|\\bbuilt\\b[\\s\\S]*webpack"
+        },
+        {
+          "label": "Generated bundle",
+          "pattern": "server[.]bundle[.]js"
+        }
+      ]
+    },
+    {
+      "filename": "react_api_bundle.png",
+      "task": 5,
+      "label": "Inspect the generated JavaScript bundle",
+      "required": [
+        {
+          "label": "cat server.bundle.js piped to more",
+          "pattern": "cat\\s+server[.]bundle[.]js\\s*\\|\\s*more"
+        },
+        {
+          "label": "Bundled JavaScript content",
+          "pattern": "webpack|__webpack_require__|function\\s*\\(|module[.]exports"
+        }
+      ]
+    },
+    {
+      "filename": "docker_installed.png",
+      "task": 6,
+      "label": "Docker version",
+      "required": [
+        {
+          "label": "docker --version command",
+          "pattern": "docker\\s+--version"
+        },
+        {
+          "label": "Installed Docker version",
+          "pattern": "Docker\\s+version\\s+\\d+[.]\\d+"
+        }
+      ]
+    },
+    {
+      "filename": "dockerfile_exists.png",
+      "task": 6,
+      "label": "Locate the Dockerfile in project root",
+      "required": [
+        {
+          "label": "ls command",
+          "pattern": "(?:^|[$#]\\s*|\\n)\\s*ls(?:\\s|$)"
+        },
+        {
+          "label": "Dockerfile in listing",
+          "pattern": "\\bDockerfile\\b"
+        },
+        {
+          "label": "app directory",
+          "pattern": "\\bapp\\b"
+        }
+      ]
+    },
+    {
+      "filename": "docker_images_before.png",
+      "task": 6,
+      "label": "Inspect Docker images",
+      "required": [
+        {
+          "label": "docker images command",
+          "pattern": "docker\\s+(?:images|image\\s+ls)"
+        },
+        {
+          "label": "Image-list headings",
+          "pattern": "REPOSITORY[\\s\\S]*TAG[\\s\\S]*IMAGE\\s+ID"
+        }
+      ]
+    },
+    {
+      "filename": "docker_build.png",
+      "task": 6,
+      "label": "Build lab5:1.0 image",
+      "required": [
+        {
+          "label": "docker build -t lab5:1.0 . command",
+          "pattern": "docker\\s+build\\s+-t\\s+lab5:1[.]0\\s+[.]"
+        },
+        {
+          "label": "Successful legacy or BuildKit image-tag output",
+          "pattern": "Successfully\\s+tagged\\s+lab5:1[.]0|naming\\s+to\\s+(?:docker[.]io/library/)?lab5:1[.]0|tagging\\s+to\\s+(?:docker[.]io/library/)?lab5:1[.]0"
+        }
+      ]
+    },
+    {
+      "filename": "docker_images_after.png",
+      "task": 6,
+      "label": "Inspect Docker images",
+      "required": [
+        {
+          "label": "docker images command",
+          "pattern": "docker\\s+(?:images|image\\s+ls)"
+        },
+        {
+          "label": "Image-list headings",
+          "pattern": "REPOSITORY[\\s\\S]*TAG[\\s\\S]*IMAGE\\s+ID"
+        },
+        {
+          "label": "lab5 repository and 1.0 tag",
+          "pattern": "\\blab5\\s+1[.]0\\b"
+        }
+      ]
+    }
+  ]
+}
+

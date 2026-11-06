@@ -1,0 +1,774 @@
+{
+  "lab": 6,
+  "source_url": "https://github.com/WaqasSaleem97/DevOps_F26/blob/a4e0d5bac6b167e0663b013e8bf23058d833f613/Labs/Lab06/README.md",
+  "source_commit": "a4e0d5bac6b167e0663b013e8bf23058d833f613",
+  "screenshot_count": 28,
+  "solution_pdf": "Lab6_Solution.pdf",
+  "scoring": "Each required screenshot and the valid solution PDF is one equal-weight check.",
+  "instructor_reference_git_blobs": [
+    "b4d5ea1dd6bbc1c2349d10679c8939a34acd06b1",
+    "004939e140612dd2959691e005bb0d06659d6dbd",
+    "536139aae6be8676e21481d187e922fe97d53d19",
+    "67f3445ee88e0d6616b77445816790355917d53b",
+    "8b351fb5c4b71e53e10783751ed8295ae1210e8e",
+    "f2a408895aa8dae34cc250cc69f1a20cd5a880aa",
+    "d6f1620f49c0ca332b724ef4a15707c49c4f6fb0",
+    "d71c453a6eff6e6c9b770fe91c90f15b222a9af8",
+    "69110db4fcef7bd3af5b8c010e288d889c8a718e",
+    "748e0ba77e5479b7c931981fefda52f64b27859b",
+    "f0fe501a4265f0ea936a2e42db5424b5857c05e8",
+    "7760d5de903e1f2f1b0c86d6b76f6dd0cedfa162",
+    "cac33e521f864756ded7598cb615605a599dd6c2",
+    "b09beac32ae207146baed9d0a956b1d77a53ad45",
+    "041aceebf606082f691ad1dcf8c273d07312fc74",
+    "ce4bad4c8b8cc0cdd6383837965a181338f8b616",
+    "1dfe5c76ddfc8915c8cc0c8b12a52b7664980684",
+    "13719d8b2eddbc7d188ca5b1fa06ea78d2f9250d",
+    "daf8b2ed1044126cfd8bee324a93b703efff7ed9",
+    "4e52e98a6f2b70ce6dd29450addca963503f535b",
+    "eea14b195fbb7cd2e5777e2b17f33a971a8f8c61",
+    "d6d9b95324278c223cc72d91bc4f0f9900b1b986",
+    "e7d08f3cbff07e13ac2c86904d60744bfc05bf1a",
+    "70128cc81323691e2778fc24a30222cbae0bff07",
+    "ad036ec512fe10125964d857c425010b36da4a40",
+    "71f7a23e549976d11c68f7ad81ceab3781fee74a",
+    "ae62c3f1e1fa1035190bd4dbeda3896ef8221f1c",
+    "020ad9588584d3eb429b85c575192448bf8e9f47",
+    "819d66c2ca83c611d983db496cef95b216745b3b",
+    "8d374a966e3f613c3b0931ee430bf5bc5a3b744e",
+    "4eeabb8f32f5d15f36c579f8342c9e9ddc1440a2",
+    "a294c7d26a9d63e16ab0eb4f59797886109bc908",
+    "f96fe2fc12435669df943c01a217dbb3d67cc202",
+    "30dd02969105504ec00c6355519432e23efbdf76",
+    "30aafc4639954d6392ab2b5a7f7b3a437db4c985",
+    "b806f5321f325e47c07938f215b7c745ffd76f10",
+    "1dd1134dce392b20083b6e6667e8bcf65266d6f9"
+  ],
+  "screenshots": [
+    {
+      "filename": "nexus_container_running.png",
+      "task": 1,
+      "label": "Nexus container and published ports",
+      "required": [
+        {
+          "label": "docker ps command",
+          "pattern": "docker\\s+ps"
+        },
+        {
+          "label": "Nexus container/image",
+          "pattern": "sonatype/nexus3|\\bnexus\\b"
+        },
+        {
+          "label": "Running container",
+          "pattern": "\\bUp\\b|\\brunning\\b"
+        },
+        {
+          "label": "Host 8006 mapped to 8081",
+          "pattern": "8006\\s*[-=]*>\\s*8081"
+        },
+        {
+          "label": "Host 8007 mapped to 8007",
+          "pattern": "8007\\s*[-=]*>\\s*8007"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_user_access.png",
+      "task": 2,
+      "label": "Authenticated Nexus status response",
+      "required": [
+        {
+          "label": "curl authentication as nexus",
+          "pattern": "\\bcurl\\b[^\\n]*(?:-u|--user)\\s+[\\\"']?nexus(?:\\b|[\\\"'\\s])"
+        },
+        {
+          "label": "Nexus REST API endpoint",
+          "pattern": "8006/service/rest/v1/status\\b"
+        },
+        {
+          "label": "HTTP 200 success",
+          "pattern": "HTTP/(?:1[.]1|2)\\s+200\\b"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_nexus_configuration.png",
+      "task": 3,
+      "label": "Gradle publication and project name",
+      "required": [
+        {
+          "label": "build.gradle",
+          "pattern": "build[.]gradle"
+        },
+        {
+          "label": "Java plugin",
+          "pattern": "id\\s*[('\\\" ]+\\s*java\\b"
+        },
+        {
+          "label": "Maven publish plugin",
+          "pattern": "maven-publish"
+        },
+        {
+          "label": "Publication block",
+          "pattern": "\\bpublishing\\b[\\s\\S]*MavenPublication"
+        },
+        {
+          "label": "JAR artifact declaration",
+          "pattern": "\\bartifact\\s*\\([\\s\\S]*my-app"
+        },
+        {
+          "label": "Nexus snapshots URL",
+          "pattern": "8006/repository/maven-snapshots/?"
+        },
+        {
+          "label": "Classroom HTTP opt-in",
+          "pattern": "allowInsecureProtocol\\s*=\\s*true"
+        },
+        {
+          "label": "Property-based deployment credentials",
+          "pattern": "project[.]repoUser[\\s\\S]*project[.]repoPassword"
+        },
+        {
+          "label": "settings.gradle project name",
+          "pattern": "rootProject[.]name\\s*=\\s*['\"]my-app['\"]"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_nexus_build.png",
+      "task": 3,
+      "label": "Build the Gradle Nexus artifact",
+      "required": [
+        {
+          "label": "./gradlew clean build command",
+          "pattern": "[.]/gradlew\\s+clean\\s+build\\b"
+        },
+        {
+          "label": "Gradle BUILD SUCCESSFUL",
+          "pattern": "\\bBUILD\\s+SUCCESSFUL\\b"
+        },
+        {
+          "label": "Generated my-app JAR",
+          "pattern": "my-app-1[.]0-SNAPSHOT[.]jar"
+        }
+      ]
+    },
+    {
+      "filename": "gradle_nexus_publish.png",
+      "task": 3,
+      "label": "Publish Gradle artifact to Nexus",
+      "required": [
+        {
+          "label": "./gradlew clean build publish command",
+          "pattern": "[.]/gradlew\\s+clean\\s+build\\s+publish\\b"
+        },
+        {
+          "label": "Gradle BUILD SUCCESSFUL",
+          "pattern": "\\bBUILD\\s+SUCCESSFUL\\b"
+        },
+        {
+          "label": "Nexus-specific publication task",
+          "pattern": "publish\\S*PublicationToNexusRepository"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_gradle_artifact.png",
+      "task": 3,
+      "label": "Browse published Gradle snapshot",
+      "required": [
+        {
+          "label": "maven-snapshots repository",
+          "pattern": "maven-snapshots"
+        },
+        {
+          "label": "Group hierarchy com/example",
+          "pattern": "\\bcom\\b[\\s\\S]*\\bexample\\b"
+        },
+        {
+          "label": "Correct application",
+          "pattern": "\\bmy-app\\b"
+        },
+        {
+          "label": "Correct snapshot version",
+          "pattern": "1[.]0-SNAPSHOT"
+        },
+        {
+          "label": "Published JAR, including timestamped snapshots",
+          "pattern": "my-app[-\\s][^\\n]*[.]jar\\b"
+        },
+        {
+          "label": "Maven metadata",
+          "pattern": "maven-metadata[.]xml"
+        }
+      ]
+    },
+    {
+      "filename": "maven_nexus_project.png",
+      "task": 4,
+      "label": "Open the Maven project (new or reused)",
+      "required": [
+        {
+          "label": "java-maven-app opened project",
+          "pattern": "java-maven-app"
+        },
+        {
+          "label": "pom.xml in project",
+          "pattern": "pom[.]xml"
+        },
+        {
+          "label": "IntelliJ project/editor context",
+          "pattern": "Project|IntelliJ|src"
+        }
+      ]
+    },
+    {
+      "filename": "maven_distribution_management.png",
+      "task": 4,
+      "label": "Maven snapshot deployment destination",
+      "required": [
+        {
+          "label": "pom.xml",
+          "pattern": "pom[.]xml"
+        },
+        {
+          "label": "Top-level project/version context",
+          "pattern": "<project\\b|<version>"
+        },
+        {
+          "label": "distributionManagement",
+          "pattern": "distributionManagement"
+        },
+        {
+          "label": "snapshotRepository",
+          "pattern": "snapshotRepository"
+        },
+        {
+          "label": "nexus-snapshots server ID",
+          "pattern": "nexus-snapshots"
+        },
+        {
+          "label": "Correct snapshot repository URL",
+          "pattern": "8006/repository/maven-snapshots/"
+        }
+      ]
+    },
+    {
+      "filename": "maven_package_nexus.png",
+      "task": 4,
+      "label": "Package the Maven snapshot",
+      "required": [
+        {
+          "label": "mvn package command",
+          "pattern": "\\bmvn\\s+package\\b"
+        },
+        {
+          "label": "Maven BUILD SUCCESS",
+          "pattern": "\\bBUILD\\s+SUCCESS\\b(?!FUL)"
+        },
+        {
+          "label": "Generated Maven JAR",
+          "pattern": "java-maven-app-1[.]1[.]0-SNAPSHOT[.]jar"
+        }
+      ]
+    },
+    {
+      "filename": "maven_deploy_nexus.png",
+      "task": 4,
+      "label": "Deploy Maven snapshot to Nexus",
+      "required": [
+        {
+          "label": "mvn deploy command",
+          "pattern": "\\bmvn\\s+deploy\\b"
+        },
+        {
+          "label": "Maven BUILD SUCCESS",
+          "pattern": "\\bBUILD\\s+SUCCESS\\b(?!FUL)"
+        },
+        {
+          "label": "Upload result to nexus-snapshots",
+          "pattern": "(?:Uploading|Uploaded)\\s+to\\s+nexus-snapshots"
+        },
+        {
+          "label": "Nexus snapshots upload URL",
+          "pattern": "8006/repository/maven-snapshots/"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_maven_artifact.png",
+      "task": 4,
+      "label": "Browse published Maven snapshot",
+      "required": [
+        {
+          "label": "maven-snapshots repository",
+          "pattern": "maven-snapshots"
+        },
+        {
+          "label": "Group hierarchy com/example",
+          "pattern": "\\bcom\\b[\\s\\S]*\\bexample\\b"
+        },
+        {
+          "label": "Correct application",
+          "pattern": "\\bjava-maven-app\\b"
+        },
+        {
+          "label": "Correct snapshot version",
+          "pattern": "1[.]1[.]0-SNAPSHOT"
+        },
+        {
+          "label": "Published JAR, including timestamped snapshots",
+          "pattern": "java-maven-app[-\\s][^\\n]*[.]jar\\b"
+        },
+        {
+          "label": "Published POM",
+          "pattern": "java-maven-app[-\\s][^\\n]*[.]pom\\b"
+        },
+        {
+          "label": "Maven metadata",
+          "pattern": "maven-metadata[.]xml"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_repositories_user.png",
+      "task": 5,
+      "label": "List repositories as nexus",
+      "required": [
+        {
+          "label": "curl authentication as nexus",
+          "pattern": "\\bcurl\\b[^\\n]*(?:-u|--user)\\s+[\\\"']?nexus(?:\\b|[\\\"'\\s])"
+        },
+        {
+          "label": "Nexus REST API endpoint",
+          "pattern": "8006/service/rest/v1/repositories\\b"
+        },
+        {
+          "label": "Repository JSON response (an empty restricted-user array is allowed)",
+          "pattern": "\\[\\s*\\]|[\"']?\\bname\\b[\"']?\\s*:"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_repositories_admin.png",
+      "task": 5,
+      "label": "List repositories as admin",
+      "required": [
+        {
+          "label": "curl authentication as admin",
+          "pattern": "\\bcurl\\b[^\\n]*(?:-u|--user)\\s+[\\\"']?admin(?:\\b|[\\\"'\\s])"
+        },
+        {
+          "label": "Nexus REST API endpoint",
+          "pattern": "8006/service/rest/v1/repositories\\b"
+        },
+        {
+          "label": "Repository JSON response (an empty restricted-user array is allowed)",
+          "pattern": "[\"']?\\bname\\b[\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON format field",
+          "pattern": "[\\\"']?\\bformat\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON type field",
+          "pattern": "[\\\"']?\\btype\\b[\\\"']?\\s*:"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_components_list.png",
+      "task": 5,
+      "label": "List Maven snapshot components",
+      "required": [
+        {
+          "label": "curl authentication as nexus",
+          "pattern": "\\bcurl\\b[^\\n]*(?:-u|--user)\\s+[\\\"']?nexus(?:\\b|[\\\"'\\s])"
+        },
+        {
+          "label": "Nexus REST API endpoint",
+          "pattern": "8006/service/rest/v1/components\\s*\\?\\s*repository\\s*=\\s*maven-snapshots"
+        },
+        {
+          "label": "Returned JSON items field",
+          "pattern": "[\\\"']?\\bitems\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON id field",
+          "pattern": "[\\\"']?\\bid\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON repository field",
+          "pattern": "[\\\"']?\\brepository\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON name field",
+          "pattern": "[\\\"']?\\bname\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON version field",
+          "pattern": "[\\\"']?\\bversion\\b[\\\"']?\\s*:"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_component_details.png",
+      "task": 5,
+      "label": "Get a component by its actual ID",
+      "required": [
+        {
+          "label": "curl authentication as nexus",
+          "pattern": "\\bcurl\\b[^\\n]*(?:-u|--user)\\s+[\\\"']?nexus(?:\\b|[\\\"'\\s])"
+        },
+        {
+          "label": "Nexus REST API endpoint",
+          "pattern": "8006/service/rest/v1/components/[A-Za-z0-9_=+%:-]{4,}"
+        },
+        {
+          "label": "Returned JSON repository field",
+          "pattern": "[\\\"']?\\brepository\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON format field",
+          "pattern": "[\\\"']?\\bformat\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON group field",
+          "pattern": "[\\\"']?\\bgroup\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON name field",
+          "pattern": "[\\\"']?\\bname\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON version field",
+          "pattern": "[\\\"']?\\bversion\\b[\\\"']?\\s*:"
+        },
+        {
+          "label": "Returned JSON assets field",
+          "pattern": "[\\\"']?\\bassets\\b[\\\"']?\\s*:"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_default_blob_content.png",
+      "task": 6,
+      "label": "Inspect the default blob store read-only",
+      "required": [
+        {
+          "label": "docker exec shell command",
+          "pattern": "docker\\s+exec\\s+-it\\s+nexus\\s+/bin/sh"
+        },
+        {
+          "label": "blobs directory",
+          "pattern": "\\bblobs\\b"
+        },
+        {
+          "label": "ls default/content",
+          "pattern": "ls\\s+default/content"
+        },
+        {
+          "label": "Real blob directory listing",
+          "pattern": "\\bvol[-\\s]?\\d+|\\bchap[-\\s]?\\d+|content[.]properties"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_mystore_created.png",
+      "task": 6,
+      "label": "Saved and started mystore file blob store",
+      "required": [
+        {
+          "label": "Blob Stores listing",
+          "pattern": "Blob\\s+Stores"
+        },
+        {
+          "label": "default blob store",
+          "pattern": "\\bdefault\\b"
+        },
+        {
+          "label": "mystore blob store",
+          "pattern": "\\bmystore\\b"
+        },
+        {
+          "label": "File store type",
+          "pattern": "\\bFile\\b"
+        },
+        {
+          "label": "Started state",
+          "pattern": "\\bStarted\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_blob_directories.png",
+      "task": 6,
+      "label": "Verify both directories in the existing container shell",
+      "required": [
+        {
+          "label": "pwd and blobs path",
+          "pattern": "\\bpwd\\b[\\s\\S]*[/\\s]blobs\\b"
+        },
+        {
+          "label": "default directory",
+          "pattern": "\\bdefault\\b"
+        },
+        {
+          "label": "mystore directory",
+          "pattern": "\\bmystore\\b"
+        },
+        {
+          "label": "Exit back to Ubuntu",
+          "pattern": "\\bexit\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_docker_hosted_repository.png",
+      "task": 6,
+      "label": "Docker hosted repository backed by mystore on 8007",
+      "required": [
+        {
+          "label": "docker-hosted repository name",
+          "pattern": "docker-hosted"
+        },
+        {
+          "label": "Hosted repository type",
+          "pattern": "\\bhosted\\b"
+        },
+        {
+          "label": "mystore blob-store assignment",
+          "pattern": "\\bmystore\\b"
+        },
+        {
+          "label": "HTTP connector",
+          "pattern": "\\bHTTP\\b"
+        },
+        {
+          "label": "Connector port 8007",
+          "pattern": "\\b8007\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_cleanup_policy_created.png",
+      "task": 7,
+      "label": "Maven snapshot cleanup policy and populated preview",
+      "required": [
+        {
+          "label": "Maven policy",
+          "pattern": "\\bmaven\\b"
+        },
+        {
+          "label": "maven2 format",
+          "pattern": "\\bmaven2\\b"
+        },
+        {
+          "label": "Snapshot release type",
+          "pattern": "Pre-Releases\\s*/\\s*Snapshots|Snapshots"
+        },
+        {
+          "label": "Asset Name Matcher",
+          "pattern": "Asset\\s+Name\\s+Matcher"
+        },
+        {
+          "label": ".* regular expression",
+          "pattern": "[.]\\s*\\*"
+        },
+        {
+          "label": "maven-snapshots preview repository",
+          "pattern": "maven-snapshots"
+        },
+        {
+          "label": "Populated preview with published component",
+          "pattern": "\\bmy-app\\b|\\bjava-maven-app\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_cleanup_policy_attached.png",
+      "task": 7,
+      "label": "Attach maven policy to maven-snapshots",
+      "required": [
+        {
+          "label": "maven-snapshots repository",
+          "pattern": "maven-snapshots"
+        },
+        {
+          "label": "Cleanup Policies section",
+          "pattern": "Cleanup\\s+Polic(?:y|ies)"
+        },
+        {
+          "label": "maven under Applied",
+          "pattern": "Applied[\\s\\S]*\\bmaven\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_cleanup_task_waiting.png",
+      "task": 7,
+      "label": "Cleanup service waiting for 06:00",
+      "required": [
+        {
+          "label": "Cleanup service",
+          "pattern": "Cleanup\\s+service"
+        },
+        {
+          "label": "Waiting status",
+          "pattern": "\\bWaiting\\b"
+        },
+        {
+          "label": "Next run label",
+          "pattern": "Next\\s+run"
+        },
+        {
+          "label": "06:00 scheduled time (no hard-coded date)",
+          "pattern": "\\b0?6\\s*:\\s*00(?:\\s*:\\s*00)?\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_cleanup_task_completed.png",
+      "task": 7,
+      "label": "Successful manual cleanup run",
+      "required": [
+        {
+          "label": "Task Cleanup service",
+          "pattern": "Cleanup service"
+        },
+        {
+          "label": "Last run timestamp",
+          "pattern": "Last\\s+run[^\\n]*\\d"
+        },
+        {
+          "label": "Last result Ok",
+          "pattern": "Last\\s+result\\s*:?\\s*(?:\\n\\s*)?Ok\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_maven_snapshots_empty.png",
+      "task": 7,
+      "label": "Empty snapshot repository after cleanup",
+      "required": [
+        {
+          "label": "maven-snapshots repository",
+          "pattern": "maven-snapshots"
+        },
+        {
+          "label": "No components/assets found message",
+          "pattern": "No\\s+components?\\s*/\\s*assets\\s+found\\s+in\\s+repository|No\\s+components?\\s+(?:or\\s+assets\\s+)?found"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_blob_store_before_compaction.png",
+      "task": 7,
+      "label": "Blob-store metrics before compaction",
+      "required": [
+        {
+          "label": "Blob Stores page",
+          "pattern": "Blob\\s+Stores"
+        },
+        {
+          "label": "default blob-store row",
+          "pattern": "\\bdefault\\b"
+        },
+        {
+          "label": "Blob count column",
+          "pattern": "Blob\\s+Count"
+        },
+        {
+          "label": "Used size column",
+          "pattern": "Used\\s+Size"
+        },
+        {
+          "label": "Available space column",
+          "pattern": "Available\\s+Space"
+        },
+        {
+          "label": "Numeric storage values",
+          "pattern": "\\d+(?:[.,]\\d+)?\\s*(?:Bytes|[KMGT]i?B)\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_compact_task_configured.png",
+      "task": 7,
+      "label": "Daily compaction of default at 06:30",
+      "required": [
+        {
+          "label": "compact-store task name",
+          "pattern": "compact-store"
+        },
+        {
+          "label": "default blob store",
+          "pattern": "Blob\\s+store[\\s\\S]*\\bdefault\\b"
+        },
+        {
+          "label": "Blobs Older Than 0",
+          "pattern": "Blobs\\s+Older\\s+Than[\\s\\S]*\\b0\\b"
+        },
+        {
+          "label": "Daily frequency",
+          "pattern": "\\bDaily\\b"
+        },
+        {
+          "label": "06:30 scheduled time (no fixed date)",
+          "pattern": "\\b0?6\\s*:\\s*30\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_compact_task_completed.png",
+      "task": 7,
+      "label": "Successful manual compact-store run",
+      "required": [
+        {
+          "label": "Task compact-store",
+          "pattern": "compact[-\\s]*store"
+        },
+        {
+          "label": "Last run timestamp",
+          "pattern": "Last\\s+run[^\\n]*\\d"
+        },
+        {
+          "label": "Last result Ok",
+          "pattern": "Last\\s+result\\s*:?\\s*(?:\\n\\s*)?Ok\\b"
+        }
+      ]
+    },
+    {
+      "filename": "nexus_blob_store_after_compaction.png",
+      "task": 7,
+      "label": "Blob-store metrics after compaction",
+      "required": [
+        {
+          "label": "Blob Stores page",
+          "pattern": "Blob\\s+Stores"
+        },
+        {
+          "label": "default blob-store row",
+          "pattern": "\\bdefault\\b"
+        },
+        {
+          "label": "Blob count column",
+          "pattern": "Blob\\s+Count"
+        },
+        {
+          "label": "Used size column",
+          "pattern": "Used\\s+Size"
+        },
+        {
+          "label": "Available space column",
+          "pattern": "Available\\s+Space"
+        },
+        {
+          "label": "Numeric storage values",
+          "pattern": "\\d+(?:[.,]\\d+)?\\s*(?:Bytes|[KMGT]i?B)\\b"
+        }
+      ]
+    }
+  ]
+}
+

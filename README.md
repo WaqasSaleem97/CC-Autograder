@@ -216,6 +216,24 @@ The Lab 05 grader is aligned with the current question in
   been removed.
 - The solution report must be the exact, valid `Lab5_Solution.pdf`.
 
+## DevOps Lab 05 and Lab 06 grading
+
+The DevOps graders use [DevOps_F26 Lab05](https://github.com/WaqasSaleem97/DevOps_F26/blob/main/Labs/Lab05/README.md)
+and [Lab06](https://github.com/WaqasSaleem97/DevOps_F26/blob/main/Labs/Lab06/README.md),
+not the CC Linux labs above. Select repository `DevOps` and submission directory
+`Labs/Lab05` or `Labs/Lab06` in the existing workflow.
+
+- Lab 05: 37 required screenshots plus `Lab5_Solution.pdf` (38 equal checks).
+- Lab 06: 28 required screenshots plus `Lab6_Solution.pdf` (29 equal checks).
+- Both retain screenshot-name/folder normalization and shared adaptive OCR,
+  validate identity and task results, protect against credential exposure and
+  provide structured criteria for the existing manual image-audit workflow.
+- Exam-practice answers, removed screenshots and source/build files that the labs
+  do not require students to submit are not assigned extra marks.
+- No student code, Docker commands, live Nexus requests or cleanup jobs are run.
+
+See [DevOps grading coverage, safety policy and regression tests](tests/DevOps/README.md).
+
 ## Install and verify
 
 ```bash
@@ -224,3 +242,4 @@ npm run check
 ```
 
 Commit `package-lock.json` so GitHub Actions can run `npm ci`.
+
