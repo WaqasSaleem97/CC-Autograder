@@ -68,16 +68,13 @@ instead of replacing existing marks with zero.
   matcher. A split-screen prompt is valid for browser/editor evidence. OCR is a
   screening aid, not proof that an unsaved form was saved or a UI checkbox was
   selected. Review failures and visual-only requirements before publishing.
-- Missing, ambiguous, corrupt, unreadable, wrong-task, wrong-identity and
-  credential-exposing screenshots receive zero for the affected check.
+- Missing, ambiguous, corrupt, unreadable, wrong-task and wrong-identity
+  screenshots receive zero for the affected check.
 - Lab 05 accepts both Docker image-list layouts: separate repository/tag
   columns or a combined `lab5:1.0` image reference. The final list must show
   its image ID. The Dockerfile listing need not show an unrelated `app` folder,
   and IntelliJ Welcome evidence need not show the browser address bar; port
   3001 is checked separately in the launch evidence.
-- Hidden password prompts and ordinary URLs beside the terminal are not
-  credential disclosures. Explicit passwords, tokens, private keys and
-  credential-bearing URLs are still rejected.
 - Match instructor-reference copies against trusted, pinned Git blob hashes,
   not a student-controlled blacklist. Lab 06's 37 supplied reference PNGs cannot
   be used byte-for-byte as student evidence.
@@ -87,12 +84,12 @@ instead of replacing existing marks with zero.
   operates within the workflow's selected sibling `DevOps` repositories.
 - Accept Maven `No tests to run` with `BUILD SUCCESS`, both Docker legacy and
   BuildKit success output, and literal or timestamped Nexus snapshot filenames.
-- Detect visible curl `nexus:password` / `admin:password`, Gradle properties,
-  Maven XML passwords, Basic authorization values, private keys and access
-  tokens. Hidden password prompts, masks and property references are allowed.
+- Visible credentials do not reduce marks or trigger manual review on their
+  own. The screenshot must still show the correct task evidence and identity.
   Feedback never repeats the secret. OCR audit text containing a detected secret
-  is replaced with a redaction notice; original submitted images remain private
-  review material and may themselves contain sensitive data.
+  is replaced with a redaction notice before it is saved. Original screenshots
+  are unchanged and may contain sensitive data; use disposable lab credentials
+  and inspect those screenshots privately.
 - The grader never builds, starts or executes student code, modifies a student
   repository, contacts a student server or runs Nexus cleanup/compaction.
 

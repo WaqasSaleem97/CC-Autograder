@@ -52,7 +52,7 @@ def load_rubric(path: Path) -> dict:
 
 
 def credential_visible(text: str) -> bool:
-    """Add build-tool/curl password checks to the existing secret detector."""
+    """Detect credentials in OCR text for audit redaction, not scoring."""
     if credential_exposed(text, join_url_words=False):
         return True
     if re.search(r"authorization\s*:\s*basic\s+[a-z0-9+/=]{8,}", text, re.I):
@@ -84,8 +84,6 @@ def credential_visible(text: str) -> bool:
 def evidence_problems(check: dict, text: str, username: str) -> list[str]:
     if not text.strip():
         return ["unreadable OCR"]
-    if credential_visible(text):
-        return ["visible password, private key or access token (value not recorded)"]
     problems = []
     if not prompt_matches(username, text):
         problems.append("registered GitHub username@ubuntu prompt not detected")
@@ -202,21 +200,25 @@ def duplicate_status(image: Path, peers: list[Path]) -> str:
 
 
 def run_ocr(image: Path, destination: Path) -> str:
+    # Keep the raw text in the temporary grading file. Write the persistent
+    # audit copy ourselves so the shared helper never saves it unredacted there.
+    audit_directory = os.environ.get("OCR_AUDIT_DIR", "").strip()
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts/ocr_screenshot.py"), str(image), str(destination)],
         capture_output=True, text=True, check=False, timeout=100,
-        env={**os.environ, "OMP_THREAD_LIMIT": "1"},
+        env={**os.environ, "OMP_THREAD_LIMIT": "1", "OCR_AUDIT_DIR": ""},
     )
     if result.returncode:
         raise RuntimeError("Trusted OCR helper failed; no marks were changed")
-    # The shared helper also writes OCR_AUDIT_DIR for portal/manual image audit.
     text = destination.read_text(encoding="utf-8", errors="replace")
-    audit_directory = os.environ.get("OCR_AUDIT_DIR", "").strip()
-    if audit_directory and credential_visible(text):
-        (Path(audit_directory) / destination.name).write_text(
-            "[REDACTED: OCR contained a visible credential. Inspect the image privately.]\n",
-            encoding="utf-8",
+    if audit_directory:
+        audit_output = Path(audit_directory) / destination.name
+        audit_output.parent.mkdir(parents=True, exist_ok=True)
+        audit_text = (
+            "[REDACTED: OCR contained a visible credential. Inspect the image privately.]\n"
+            if credential_visible(text) else text
         )
+        audit_output.write_text(audit_text, encoding="utf-8")
     return text
 
 

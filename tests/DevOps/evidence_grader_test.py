@@ -55,7 +55,7 @@ def make_pdf(path):
 
 
 class CredentialTests(unittest.TestCase):
-    def test_real_nexus_and_build_credentials_are_rejected(self):
+    def test_nexus_and_build_credentials_are_detected_for_audit_redaction(self):
         for value in (
             'curl -u nexus:DemoPassword123 -X GET "http://server:8006/service/rest/v1/status"',
             'curl --user "admin:AnotherPassword" http://server:8006',
@@ -242,11 +242,35 @@ class GradingTests(unittest.TestCase):
         self.assertEqual(result["review_count"], 1)
         self.assertIn("manual review required", result["feedback"])
 
-    def test_visible_secret_is_not_repeated_in_feedback(self):
-        result = self.run_grade({"maven_package.png": self.samples["maven_package.png"] + "\npassword=SensitivePassword123"})
-        self.assertIn("visible password", result["feedback"])
-        self.assertNotIn("SensitivePassword123", json.dumps(result))
-        self.assertEqual(result["score"], 9.74)
+    def test_visible_credentials_do_not_reduce_credit_or_appear_in_feedback(self):
+        secret = "ExampleLabPassword123"
+        for lab, filename in ((5, "maven_package.png"), (6, "nexus_repositories_user.png")):
+            with self.subTest(lab=lab):
+                self.prepare(lab)
+                sample = self.samples[filename]
+                if lab == 5:
+                    sample += f"\npassword={secret}"
+                else:
+                    sample = sample.replace("-u nexus ", f"-u nexus:{secret} ", 1)
+                    sample = sample.replace("\nEnter host password for user 'nexus':", "")
+                self.assertTrue(grader.credential_visible(sample))
+                result = self.run_grade({filename: sample})
+                self.assertEqual(result["score"], 10)
+                self.assertEqual(result["review_count"], 0)
+                self.assertIn(f"{filename}: passed", result["feedback"])
+                self.assertNotIn(secret, json.dumps(result))
+
+    def test_visible_credentials_do_not_override_task_or_identity_checks(self):
+        filename = "maven_package.png"
+        sample = self.samples[filename] + "\npassword=ExampleLabPassword123"
+        for original, replacement, expected in (
+            ("mvn package", "mvn test", "mvn package command not detected"),
+            ("Student-Name", "Different-User", "registered GitHub username@ubuntu prompt not detected"),
+        ):
+            with self.subTest(expected=expected):
+                result = self.run_grade({filename: sample.replace(original, replacement)})
+                self.assertEqual(result["score"], 9.74)
+                self.assertIn(expected, result["feedback"])
 
     def test_student_scripts_are_never_executed(self):
         marker = self.root / "student-code-ran"
@@ -323,22 +347,32 @@ console.log(JSON.stringify(parseFeedback(JSON.parse(input).feedback)));
 
 class OcrIntegrationTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("tesseract"), "Tesseract is needed for the OCR integration smoke test")
-    def test_generated_terminal_screenshot_passes_real_shared_ocr(self):
+    def test_generated_terminal_screenshots_pass_with_sensitive_audit_text_redacted(self):
         with tempfile.TemporaryDirectory(prefix="devops-real-ocr-") as temporary:
             directory = Path(temporary)
-            image = Image.new("RGB", (1050, 230), "white")
-            draw = ImageDraw.Draw(image)
             font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
             font = ImageFont.truetype(font_path, 26) if Path(font_path).exists() else ImageFont.load_default()
-            draw.multiline_text((25, 25), "student-name@ubuntu:~$ mvn package\n[INFO] Building jar: target/sample.jar\n[INFO] BUILD SUCCESS", fill="black", font=font, spacing=15)
-            source = directory / "maven_package.png"
-            image.save(source)
-            with mock.patch.dict("os.environ", {"OCR_AUDIT_DIR": str(directory / "audit")}):
-                text = grader.run_ocr(source, directory / "maven_package.txt")
             rubric = grader.load_rubric(HERE / "Lab5/criteria.json")
             check = next(c for c in rubric["screenshots"] if c["filename"] == "maven_package.png")
-            self.assertEqual(grader.evidence_problems(check, text, "student-name"), [])
-            self.assertTrue((directory / "audit/maven_package.txt").is_file())
+            secret = "ExampleLabPassword123"
+            command = "student-name@ubuntu:~$ mvn package\n[INFO] Building jar: target/sample.jar\n[INFO] BUILD SUCCESS"
+            for has_credential in (False, True):
+                with self.subTest(has_credential=has_credential):
+                    image = Image.new("RGB", (1050, 230), "white")
+                    content = command + (f"\npassword={secret}" if has_credential else "")
+                    ImageDraw.Draw(image).multiline_text((25, 25), content, fill="black", font=font, spacing=15)
+                    source = directory / f"maven_package_{has_credential}.png"
+                    image.save(source)
+                    with mock.patch.dict("os.environ", {"OCR_AUDIT_DIR": str(directory / "audit")}):
+                        text = grader.run_ocr(source, source.with_suffix(".txt"))
+                    self.assertEqual(grader.evidence_problems(check, text, "student-name"), [])
+                    audit_text = (directory / "audit" / source.with_suffix(".txt").name).read_text()
+                    if has_credential:
+                        self.assertIn(secret, text)
+                        self.assertIn("[REDACTED:", audit_text)
+                        self.assertNotIn(secret, audit_text)
+                    else:
+                        self.assertEqual(audit_text, text)
 
 
 if __name__ == "__main__":

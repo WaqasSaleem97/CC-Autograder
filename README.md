@@ -228,8 +228,9 @@ not the CC Linux labs above. Select repository `DevOps` and submission directory
 - Lab 05: 37 required screenshots plus `Lab5_Solution.pdf` (38 equal checks).
 - Lab 06: 28 required screenshots plus `Lab6_Solution.pdf` (29 equal checks).
 - Both retain screenshot-name/folder normalization and shared adaptive OCR,
-  validate identity and task results, protect against credential exposure and
-  provide structured criteria for the existing manual image-audit workflow.
+  validate identity and task results, and provide structured criteria for the
+  existing manual image-audit workflow. Visible credentials do not affect scores;
+  detected credentials are still redacted from retained OCR audit text.
 - Exam-practice answers, removed screenshots and source/build files that the labs
   do not require students to submit are not assigned extra marks.
 - No student code, Docker commands, live Nexus requests or cleanup jobs are run.
