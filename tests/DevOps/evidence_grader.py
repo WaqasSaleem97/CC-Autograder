@@ -28,6 +28,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from ocr_evidence import credential_exposed, prompt_matches  # noqa: E402
 from resolve_screenshots import filename_key, resolve  # noqa: E402
 
+# Pillow also raises SyntaxError during verify() for damaged image chunks,
+# even when the file was recognized and opened as an image.
+INVALID_IMAGE_ERRORS = (OSError, SyntaxError, ValueError, Image.DecompressionBombError)
+
 
 def load_rubric(path: Path) -> dict:
     rubric = json.loads(path.read_text(encoding="utf-8"))
@@ -180,7 +184,7 @@ def duplicate_status(image: Path, peers: list[Path]) -> str:
     for peer in peers:
         try:
             other_exact, _other_git, other_dhash, other_size, other_preview = image_fingerprint(peer)
-        except (OSError, ValueError, Image.DecompressionBombError):
+        except INVALID_IMAGE_ERRORS:
             continue
         if exact == other_exact:
             return "exact"
@@ -269,7 +273,7 @@ def grade(submission: Path, total: Decimal, username: str, rubric: dict) -> dict
                     continue
                 try:
                     fingerprint = image_fingerprint(image)
-                except (OSError, ValueError, Image.DecompressionBombError):
+                except INVALID_IMAGE_ERRORS:
                     early_problems[name] = "invalid or corrupt image"
                     continue
                 if fingerprint[1] in references:

@@ -19,6 +19,20 @@ import evidence_grader as grader
 HERE = Path(__file__).resolve().parent
 
 
+def corrupt_png_checksum(path):
+    """Damage an IDAT checksum while leaving the PNG header readable."""
+    data = bytearray(path.read_bytes())
+    offset = 8  # PNG signature
+    while offset + 12 <= len(data):
+        length = int.from_bytes(data[offset:offset + 4], "big")
+        if data[offset + 4:offset + 8] == b"IDAT":
+            data[offset + 8 + length] ^= 1
+            path.write_bytes(data)
+            return
+        offset += length + 12
+    raise AssertionError("Fixture PNG has no IDAT chunk")
+
+
 def make_pdf(path):
     # A minimal real, one-page PDF with a valid xref table, not a fake header.
     objects = [
@@ -148,6 +162,30 @@ class GradingTests(unittest.TestCase):
         (self.images / "maven_package.png").write_bytes(b"not an image")
         self.assertIn("invalid or corrupt image", self.run_grade()["feedback"])
         self.assertIn("unreadable OCR", self.run_grade({"maven_test.png": ""})["feedback"])
+
+    def test_bad_png_checksum_only_loses_one_check(self):
+        for lab, filename, expected_score in (
+            (5, "maven_package.png", 9.74),
+            (6, "nexus_container_running.png", 9.66),
+        ):
+            with self.subTest(lab=lab):
+                self.prepare(lab)
+                corrupt_png_checksum(self.images / filename)
+                result = self.run_grade()
+                self.assertEqual(result["score"], expected_score)
+                self.assertIn(f"{filename}: invalid or corrupt image (0)", result["feedback"])
+
+    def test_bad_png_checksum_in_peer_does_not_abort_grading(self):
+        original = self.images / "maven_package.png"
+        peer = self.root / "damaged-peer.png"
+        shutil.copyfile(original, peer)
+        corrupt_png_checksum(peer)
+        peers = {name: [] for name in self.samples}
+        peers[original.name] = [peer]
+        result = self.run_grade(peers=peers)
+        self.assertEqual(result["score"], 10)
+        self.assertEqual(result["review_count"], 0)
+        self.assertIn("maven_package.png: passed", result["feedback"])
 
     def test_case_repeated_extensions_and_image_formats_are_tolerated(self):
         (self.images / "maven_package.png").rename(self.images / "MAVEN_PACKAGE.PNG.png")
