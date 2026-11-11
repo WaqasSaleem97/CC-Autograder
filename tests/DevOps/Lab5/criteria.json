@@ -60,10 +60,6 @@
         {
           "label": "Welcome screen",
           "pattern": "Welcome|New\\s+Project|Clone\\s+Repository"
-        },
-        {
-          "label": "Browser desktop port",
-          "pattern": "localhost:3001|127[.]0[.]0[.]1:3001"
         }
       ]
     },
@@ -584,15 +580,11 @@
       "required": [
         {
           "label": "ls command",
-          "pattern": "(?:^|[$#]\\s*|\\n)\\s*ls(?:\\s|$)"
+          "pattern": "(?:^|[$#][ \\t]*)[ \\t]*ls\\b|[$#][ \\t]*1s\\b"
         },
         {
           "label": "Dockerfile in listing",
-          "pattern": "\\bDockerfile\\b"
-        },
-        {
-          "label": "app directory",
-          "pattern": "\\bapp\\b"
+          "pattern": "^(?![^\\r\\n]*[$#])[ \\t]*(?!(?:ls|1s)\\b)[^\\r\\n]*\\bDockerfile\\b"
         }
       ]
     },
@@ -606,8 +598,8 @@
           "pattern": "docker\\s+(?:images|image\\s+ls)"
         },
         {
-          "label": "Image-list headings",
-          "pattern": "REPOSITORY[\\s\\S]*TAG[\\s\\S]*IMAGE\\s+ID"
+          "label": "Classic or current Docker image-list headings",
+          "pattern": "(?:\\bREPOSITORY\\b[\\s\\S]{0,160}\\bTAG\\b[\\s\\S]{0,120}\\bIMAGE\\s+ID\\b|\\b(?:IMAGE|ITMAGE|1MAGE|MAGE)\\s+[I1l]D\\b(?=[\\s\\S]{0,160}\\bDISK\\s+USAGE\\b)(?=[\\s\\S]{0,160}\\bCONTENT\\s+SIZE\\b))"
         }
       ]
     },
@@ -618,11 +610,11 @@
       "required": [
         {
           "label": "docker build -t lab5:1.0 . command",
-          "pattern": "docker\\s+build\\s+-t\\s+lab5:1[.]0\\s+[.]"
+          "pattern": "docker\\s+build\\s+-t\\s+(?:lab5|[1i]ab5|1lab5)[ \\t]*:[ \\t]*1[.]0[ \\t]*[.](?=\\s|$)"
         },
         {
           "label": "Successful legacy or BuildKit image-tag output",
-          "pattern": "Successfully\\s+tagged\\s+lab5:1[.]0|naming\\s+to\\s+(?:docker[.]io/library/)?lab5:1[.]0|tagging\\s+to\\s+(?:docker[.]io/library/)?lab5:1[.]0"
+          "pattern": "(?:Successfully\\s+tagged\\s+|(?:naming|tagging)\\s+to\\s+(?:docker[.]io/library/)?)lab5:1[.]0(?![0-9a-z_.-])"
         }
       ]
     },
@@ -636,12 +628,12 @@
           "pattern": "docker\\s+(?:images|image\\s+ls)"
         },
         {
-          "label": "Image-list headings",
-          "pattern": "REPOSITORY[\\s\\S]*TAG[\\s\\S]*IMAGE\\s+ID"
+          "label": "Classic or current Docker image-list headings",
+          "pattern": "(?:\\bREPOSITORY\\b[\\s\\S]{0,160}\\bTAG\\b[\\s\\S]{0,120}\\bIMAGE\\s+ID\\b|\\b(?:IMAGE|ITMAGE|1MAGE|MAGE)\\s+[I1l]D\\b(?=[\\s\\S]{0,160}\\bDISK\\s+USAGE\\b)(?=[\\s\\S]{0,160}\\bCONTENT\\s+SIZE\\b))"
         },
         {
-          "label": "lab5 repository and 1.0 tag",
-          "pattern": "\\blab5\\s+1[.]0\\b"
+          "label": "lab5:1.0 image row with image ID",
+          "pattern": "^[ \\t]*(?:[^\\w\\s]+[ \\t]*)?(?:docker[.]io/library/)?lab5(?:[ \\t]*:[ \\t]*|[ \\t]+)1[.]0\\s+(?:sha256:)?[0-9a-flo]{12,64}\\b"
         }
       ]
     }

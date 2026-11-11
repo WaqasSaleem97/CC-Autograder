@@ -70,6 +70,14 @@ instead of replacing existing marks with zero.
   selected. Review failures and visual-only requirements before publishing.
 - Missing, ambiguous, corrupt, unreadable, wrong-task, wrong-identity and
   credential-exposing screenshots receive zero for the affected check.
+- Lab 05 accepts both Docker image-list layouts: separate repository/tag
+  columns or a combined `lab5:1.0` image reference. The final list must show
+  its image ID. The Dockerfile listing need not show an unrelated `app` folder,
+  and IntelliJ Welcome evidence need not show the browser address bar; port
+  3001 is checked separately in the launch evidence.
+- Hidden password prompts and ordinary URLs beside the terminal are not
+  credential disclosures. Explicit passwords, tokens, private keys and
+  credential-bearing URLs are still rejected.
 - Match instructor-reference copies against trusted, pinned Git blob hashes,
   not a student-controlled blacklist. Lab 06's 37 supplied reference PNGs cannot
   be used byte-for-byte as student evidence.

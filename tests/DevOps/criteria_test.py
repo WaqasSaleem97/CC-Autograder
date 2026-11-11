@@ -106,6 +106,42 @@ class CriteriaTests(unittest.TestCase):
         self.assertEqual(self.problems(5, "docker_build.png", legacy), [])
         self.assertTrue(self.problems(5, "docker_build.png", buildkit.replace("lab5:1.0", "lab5:2.0")))
 
+    def test_docker_current_and_classic_image_lists(self):
+        command = "student-name@ubuntu:~$ sudo docker images"
+        current = command + "\nIMAGE IMAGE ID DISK USAGE CONTENT SIZE EXTRA"
+        self.assertEqual(self.problems(5, "docker_images_before.png", current), [])
+        for row in ("lab5:1.0 abc123def456 418MB 86MB", "docker.io/library/lab5:1.0\nabc123def456"):
+            self.assertEqual(self.problems(5, "docker_images_after.png", current + "\n" + row), [])
+        classic = command + "\nREPOSITORY TAG IMAGE ID CREATED SIZE\nlab5 1.0 abc123def456"
+        self.assertEqual(self.problems(5, "docker_images_after.png", classic), [])
+        for row in ("lab5:1.0", "lab5:2.0 abc123def456", "other:1.0 abc123def456", "lab5:1.0.1 abc123def456"):
+            self.assertTrue(self.problems(5, "docker_images_after.png", current + "\n" + row))
+        self.assertTrue(self.problems(5, "docker_images_after.png", current + "\nstudent-name@ubuntu:~$ docker build -t lab5:1.0 ."))
+        self.assertTrue(self.problems(5, "docker_images_before.png", command))
+
+    def test_docker_build_ocr_spacing_still_requires_correct_context_and_tag(self):
+        buildkit = SAMPLES[5]["docker_build.png"]
+        for noisy_command in ("lab5:1.0.", "1ab5:1.0 ."):
+            self.assertEqual(self.problems(5, "docker_build.png", buildkit.replace("lab5:1.0 .", noisy_command)), [])
+        self.assertTrue(self.problems(5, "docker_build.png", buildkit.replace("lab5:1.0 .", "lab5:1.0 .wrong-context")))
+        self.assertTrue(self.problems(5, "docker_build.png", buildkit.replace("naming to docker.io/library/lab5:1.0 done", "naming to docker.io/library/1ab5:1.0 done")))
+
+    def test_dockerfile_evidence_checks_listing_not_unrequested_app_folder(self):
+        evidence = "student-name@ubuntu:~/node-project$ 1s\nDockerfile Jenkinsfile README.md"
+        self.assertEqual(self.problems(5, "dockerfile_exists.png", evidence), [])
+        self.assertEqual(self.problems(5, "dockerfile_exists.png", "student-name@ubuntu:~$ ls -l Dockerfile\n-rw-r--r-- 1 user user 350 Nov 6 Dockerfile"), [])
+        self.assertTrue(self.problems(5, "dockerfile_exists.png", "student-name@ubuntu:~$ ls Dockerfile"))
+
+    def test_intellij_welcome_does_not_require_address_bar(self):
+        evidence = "Welcome to IntelliJ IDEA\nNew Project Open Clone Repository\nstudent-name@ubuntu:~$"
+        self.assertEqual(self.problems(5, "intellij_desktop.png", evidence), [])
+        self.assertTrue(self.problems(5, "intellij_desktop.png", evidence.replace("student-name", "different-user")))
+
+    def test_maven_success_without_required_command_is_not_enough(self):
+        evidence = "student-name@ubuntu:~$\n[INFO] Building jar: target/java-maven-app.jar\n[INFO] BUILD SUCCESS"
+        self.assertTrue(self.problems(5, "maven_package.png", evidence))
+        self.assertTrue(self.problems(5, "maven_repackage.png", evidence))
+
     def test_wrong_dependency_version_and_node_port_are_rejected(self):
         for filename in ("maven_elasticsearch_dependency.png", "gradle_elasticsearch_dependency.png"):
             self.assertTrue(self.problems(5, filename, SAMPLES[5][filename].replace("7.0.0", "8.0.0")))

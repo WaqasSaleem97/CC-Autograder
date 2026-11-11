@@ -66,6 +66,9 @@ class CredentialTests(unittest.TestCase):
             "docker exec nexus cat /nexus-data/admin.password\n12345678-1234-1234-1234-123456789abc",
             "token=ghp_" + "a" * 36,
             "-----BEGIN OPENSSH PRIVATE KEY-----",
+            "http : // nexus : VisiblePassword123 @ localhost:8006",
+            "https://localhost:3001 student-name@ubuntu:~$ password=VisiblePassword123",
+            "<password>\nVisiblePassword123\n</password>",
         ):
             with self.subTest(value=value[:30]):
                 self.assertTrue(grader.credential_visible(value))
@@ -81,6 +84,10 @@ class CredentialTests(unittest.TestCase):
             "repoPassword=${NEXUS_PASSWORD}",
             "<password>REPLACE_WITH_NEXUS_PASSWORD</password>",
             "http://10.0.0.5:8006/repository/maven-snapshots/\nstudent-name@ubuntu:~$",
+            "Password:\n[INFO] BUILD SUCCESS",
+            "Enter browser password:\r\nstudent-name@ubuntu:~$ docker compose ps",
+            "https://localhost:3001 Welcome to IntelliJ IDEA student-name@ubuntu:~$",
+            "https://127.0.0.1:3001  Terminal student-name@ubuntu:~$",
         ):
             with self.subTest(value=value):
                 self.assertFalse(grader.credential_visible(value))

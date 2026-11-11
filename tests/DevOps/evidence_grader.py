@@ -53,17 +53,19 @@ def load_rubric(path: Path) -> dict:
 
 def credential_visible(text: str) -> bool:
     """Add build-tool/curl password checks to the existing secret detector."""
-    if credential_exposed(text):
+    if credential_exposed(text, join_url_words=False):
         return True
     if re.search(r"authorization\s*:\s*basic\s+[a-z0-9+/=]{8,}", text, re.I):
         return True
     if re.search(r"admin[.]password[\s\S]{0,200}\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b", text, re.I):
         return True
     patterns = (
-        r"curl\b[^\n]*(?:-u|--user)\s+[\"']?(?:nexus|admin)\s*:\s*([^\s\"']+)",
-        r"\brepoPassword\s*=\s*([^\s]+)",
+        r"curl\b[^\r\n]*(?:-u|--user)[ \t]+[\"']?(?:nexus|admin)[ \t]*:[ \t]*([^\s\"']+)",
+        r"\brepoPassword[ \t]*=[ \t]*([^\s]+)",
         r"<password>\s*([^<]+?)\s*</password>",
-        r"\b(?:password|passwd)\s*[:=]\s*[\"']?([^\s\"']+)",
+        # A hidden prompt can end with "Password:"; the next OCR line
+        # often begins with an unrelated shell prompt or status message.
+        r"\b(?:password|passwd)[ \t]*[:=][ \t]*[\"']?([^\s\"']+)",
     )
     for pattern in patterns:
         for match in re.finditer(pattern, text, re.IGNORECASE):
