@@ -13,7 +13,6 @@ const students = JSON.parse(readFileSync(path.join(root, "results/students.json"
 const dryRun = process.argv.includes("--dry-run") || String(process.env.EMAIL_DRY_RUN || "").toLowerCase() === "true";
 const gmailUser = String(process.env.GMAIL_USER || "").trim();
 const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
-const fromName = cleanHeader(process.env.EMAIL_FROM_NAME || "CC Autograder");
 const replyTo = String(process.env.EMAIL_REPLY_TO || "").trim();
 const gradingRunId = String(process.env.GRADING_RUN_ID || "").trim();
 const firebaseProjectId = String(process.env.FIREBASE_PROJECT_ID || "").trim();
@@ -59,7 +58,7 @@ for (const result of results) {
     continue;
   }
 
-  messages.push({ ...buildMessage({ config, result, student, recipient, gmailUser, fromName, replyTo }), stagedResultRef });
+  messages.push({ ...buildMessage({ config, result, student, recipient, gmailUser, replyTo }), stagedResultRef });
 }
 
 if (!messages.length && reviewSkipped > 0) {
@@ -136,7 +135,7 @@ function validateResult(result, trustedStudents, assignment) {
   return student;
 }
 
-function buildMessage({ config: assignment, result, student, recipient, gmailUser: sender, fromName: senderName, replyTo: responseAddress }) {
+function buildMessage({ config: assignment, result, student, recipient, gmailUser: sender, replyTo: responseAddress }) {
   const registrationNumber = cleanHeader(student.registration_number || result.registration_number || "Student");
   const fullName = cleanHeader([student.first_name, student.last_name].map((value) => String(value || "").trim()).filter(Boolean).join(" "));
   const displayName = fullName || registrationNumber;
@@ -212,7 +211,7 @@ function buildMessage({ config: assignment, result, student, recipient, gmailUse
     registrationNumber,
     checkCount: report.checks.length,
     mail: {
-      from: { name: senderName, address: sender },
+      from: { name: "Instructor", address: sender },
       to: { name: displayName, address: recipient },
       ...(responseAddress ? { replyTo: responseAddress } : {}),
       subject,
@@ -254,3 +253,4 @@ function escapeHtml(value) {
     "'": "&#39;"
   })[character]);
 }
+

@@ -17,7 +17,6 @@ Lab 1, Lab 2, and Lab 3 currently have equivalent graders in both course folders
 - Secret `STUDENT_REPOS_TOKEN` only when private student repositories must be cloned
 - Secret `GMAIL_USER` containing the Gmail address that sends results
 - Secret `GMAIL_APP_PASSWORD` containing a dedicated 16-character Google App Password
-- Optional variable `EMAIL_FROM_NAME`, for example `CC Autograder`
 - Optional variable `EMAIL_REPLY_TO` for student questions
 
 If a repository cannot be collected or a trusted test crashes or times out, the
@@ -25,6 +24,9 @@ student is reported as `NOT GRADED`. Infrastructure errors are skipped during
 the Firestore update and are never converted into zero marks.
 
 ## Emailing results through Gmail
+
+Grading emails show **Instructor** as the sender display name and use the
+address configured in `GMAIL_USER`. Legacy `EMAIL_FROM_NAME` settings are ignored.
 
 Enable 2-Step Verification on the sender's Google account and create a dedicated
 App Password. Save the Gmail address and App Password as the repository secrets
