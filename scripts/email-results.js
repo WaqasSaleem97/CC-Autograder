@@ -211,7 +211,7 @@ function buildMessage({ config: assignment, result, student, recipient, gmailUse
     registrationNumber,
     checkCount: report.checks.length,
     mail: {
-      from: { name: "Instructor", address: sender },
+      from: { name: "Waqas Saleem", address: sender },
       to: { name: displayName, address: recipient },
       ...(responseAddress ? { replyTo: responseAddress } : {}),
       subject,

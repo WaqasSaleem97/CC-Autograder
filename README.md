@@ -25,7 +25,7 @@ the Firestore update and are never converted into zero marks.
 
 ## Emailing results through Gmail
 
-Grading emails show **Instructor** as the sender display name and use the
+Grading emails show **Waqas Saleem** as the sender display name and use the
 address configured in `GMAIL_USER`. Legacy `EMAIL_FROM_NAME` settings are ignored.
 
 Enable 2-Step Verification on the sender's Google account and create a dedicated
