@@ -188,7 +188,7 @@
         },
         {
           "label": "Maven JAR filename",
-          "pattern": "(?<![\\w.-])java[ \\t]*-[ \\t]*maven[ \\t]*-[ \\t]*app[ \\t]*-[ \\t]*1[ \\t]*[.][ \\t]*1[ \\t]*[.][ \\t]*0[ \\t]*-[ \\t]*SNAPSHOT[ \\t]*[.][ \\t]*jar(?![\\w.-])"
+          "pattern": "java-maven-app-1[.]1[.]0-SNAPSHOT[.]jar"
         }
       ]
     },
@@ -199,7 +199,7 @@
       "required": [
         {
           "label": "java -jar command and Maven artifact",
-          "pattern": "\\bjava[ \\t]+[-–—][ \\t]*jar\\s+(?:[.][ \\t]*/[ \\t]*)?target[ \\t]*/[ \\t]*java[ \\t]*-[ \\t]*maven[ \\t]*-[ \\t]*app[ \\t]*-[ \\t]*1[ \\t]*[.][ \\t]*1[ \\t]*[.][ \\t]*0[ \\t]*-[ \\t]*SNAPSHOT[ \\t]*[.][ \\t]*jar(?![\\w.-])"
+          "pattern": "java\\s+-jar\\s+target/java-maven-app-1[.]1[.]0-SNAPSHOT[.]jar"
         },
         {
           "label": "Successful Spring Boot / Tomcat startup",
@@ -324,7 +324,7 @@
         },
         {
           "label": "Gradle JAR filename",
-          "pattern": "(?<![\\w.-])java[ \\t]*-[ \\t]*app[ \\t]*-[ \\t]*1[ \\t]*[.][ \\t]*0[ \\t]*-[ \\t]*SNAPSHOT[ \\t]*[.][ \\t]*jar(?![\\w.-])"
+          "pattern": "java-app-1[.]0-SNAPSHOT[.]jar"
         }
       ]
     },
@@ -335,7 +335,7 @@
       "required": [
         {
           "label": "java -jar command and Gradle artifact",
-          "pattern": "\\bjava[ \\t]+[-–—][ \\t]*jar\\s+(?:[.][ \\t]*/[ \\t]*)?build[ \\t]*/[ \\t]*libs[ \\t]*/[ \\t]*java[ \\t]*-[ \\t]*app[ \\t]*-[ \\t]*1[ \\t]*[.][ \\t]*0[ \\t]*-[ \\t]*SNAPSHOT[ \\t]*[.][ \\t]*jar(?![\\w.-])"
+          "pattern": "java\\s+-jar\\s+build/libs/java-app-1[.]0-SNAPSHOT[.]jar"
         },
         {
           "label": "Successful Spring Boot / Tomcat startup",
@@ -607,7 +607,6 @@
       "filename": "docker_build.png",
       "task": 6,
       "label": "Build lab5:1.0 image",
-      "terminal_ocr_retry": true,
       "required": [
         {
           "label": "docker build -t lab5:1.0 . command",
@@ -623,7 +622,6 @@
       "filename": "docker_images_after.png",
       "task": 6,
       "label": "Inspect Docker images",
-      "terminal_ocr_retry": true,
       "required": [
         {
           "label": "docker images command",

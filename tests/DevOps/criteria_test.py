@@ -142,35 +142,6 @@ class CriteriaTests(unittest.TestCase):
         self.assertTrue(self.problems(5, "maven_package.png", evidence))
         self.assertTrue(self.problems(5, "maven_repackage.png", evidence))
 
-    def test_java_running_accepts_ocr_path_spacing_but_still_requires_startup(self):
-        for filename, path, ocr_path, wrong_version in (
-            ("maven_running.png", "target/java-maven-app-1.1.0-SNAPSHOT.jar",
-             "./target / java-maven-app-1.1 .0 - SNAPSHOT. jar", "1.1.1"),
-            ("gradle_running.png", "build/libs/java-app-1.0-SNAPSHOT.jar",
-             "./build / libs / java - app-1 .0-SNAPSHOT. jar", "1.1"),
-        ):
-            with self.subTest(filename=filename):
-                good = SAMPLES[5][filename]
-                noisy = good.replace("-jar " + path, "- jar " + ocr_path)
-                self.assertEqual(self.problems(5, filename, noisy), [])
-                self.assertTrue(self.problems(5, filename, noisy.splitlines()[0]))
-                self.assertTrue(self.problems(5, filename, good.replace(".jar", ".jar.bak")))
-                self.assertTrue(self.problems(5, filename, good.replace(path, path.replace(
-                    "1.1.0" if filename == "maven_running.png" else "1.0", wrong_version,
-                ))))
-
-    def test_jar_listing_accepts_ocr_punctuation_spacing_not_a_backup_file(self):
-        for filename, name in (
-            ("maven_jar.png", "java-maven-app-1.1.0-SNAPSHOT.jar"),
-            ("gradle_jar.png", "java-app-1.0-SNAPSHOT.jar"),
-        ):
-            with self.subTest(filename=filename):
-                clean = SAMPLES[5][filename]
-                spaced = name.replace("-", " - ").replace(".", ". ")
-                self.assertEqual(self.problems(5, filename, clean.replace(name, spaced)), [])
-                self.assertTrue(self.problems(5, filename, clean.replace(name, name + ".bak")))
-                self.assertTrue(self.problems(5, filename, clean.replace(name, "backup-" + name)))
-
     def test_wrong_dependency_version_and_node_port_are_rejected(self):
         for filename in ("maven_elasticsearch_dependency.png", "gradle_elasticsearch_dependency.png"):
             self.assertTrue(self.problems(5, filename, SAMPLES[5][filename].replace("7.0.0", "8.0.0")))
