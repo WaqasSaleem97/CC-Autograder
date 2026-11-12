@@ -12,6 +12,7 @@ from decimal import Decimal
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,8 @@ def criterion(filename, task, label, *required, retry_terminal=False):
         check["terminal_ocr_retry"] = True
     return check
 
+
+DOCKER_IMAGE_ROW = "lab5:1.0 image row with image ID"
 
 RUBRIC = {
     "lab": 5,
@@ -244,7 +247,7 @@ RUBRIC = {
             "docker_images_after.png", 6, "Inspect Docker images",
             ("docker images command", r'''docker\s+(?:images|image\s+ls)'''),
             ("Classic or current Docker image-list headings", r'''(?:\bREPOSITORY\b[\s\S]{0,160}\bTAG\b[\s\S]{0,120}\bIMAGE\s+ID\b|\b(?:IMAGE|ITMAGE|1MAGE|MAGE)\s+[I1l]D\b(?=[\s\S]{0,160}\bDISK\s+USAGE\b)(?=[\s\S]{0,160}\bCONTENT\s+SIZE\b))'''),
-            ("lab5:1.0 image row with image ID", r'''^[ \t]*(?:[^\w\s]+[ \t]*)?(?:docker[.]io/library/)?lab5(?:[ \t]*:[ \t]*|[ \t]+)1[.]0\s+(?:sha256:)?[0-9a-flo]{12,64}\b'''),
+            (DOCKER_IMAGE_ROW, r'''^[ \t]*(?:[^\w\s]+[ \t]*)?(?:docker[.]io/library/)?lab5(?:[ \t]*:[ \t]*|[ \t]+)1[.]0\s+(?:sha256:)?[0-9a-flo]{12,64}\b'''),
             retry_terminal=True,
         ),
     ],
@@ -261,20 +264,38 @@ from tempfile import TemporaryDirectory
 from PIL import Image, ImageFilter, ImageOps, ImageStat
 
 sys.path.insert(0, sys.argv[1])
-from ocr_screenshot import run_tesseract
+from ocr_screenshot import _dark_panel_bounds, run_tesseract
 
-with Image.open(sys.argv[2]) as source:
-    gray = ImageOps.exif_transpose(source).convert("L")
-if ImageStat.Stat(gray).mean[0] < 127:
-    gray = ImageOps.invert(gray)
-gray = ImageOps.autocontrast(gray, cutoff=1)
-pixels = gray.width * gray.height
-if pixels <= 2_250_000:
+image_list_pane = sys.argv[3] == "image-list-pane"
+with Image.open(sys.argv[2]) as opened:
+    image = ImageOps.exif_transpose(opened)
+    if image_list_pane:
+        image = image.convert("RGB")
+        bounds = _dark_panel_bounds(image)
+        if not bounds:
+            raise SystemExit(0)
+        image = image.crop(bounds[0])
+        # The repository, tag, and image ID are in the left columns.
+        image = image.crop((0, 0, int(image.width * .75), image.height))
+        if image.width * image.height > 2_000_000:
+            image.thumbnail((1850, 1050))
+    gray = image.convert("L")
+if image_list_pane:
+    gray = ImageOps.autocontrast(ImageOps.invert(gray), cutoff=1)
     gray = gray.resize((gray.width * 2, gray.height * 2), Image.Resampling.LANCZOS)
-elif pixels > 9_000_000:
-    scale = math.sqrt(9_000_000 / pixels)
-    gray.thumbnail((max(1, int(gray.width * scale)), max(1, int(gray.height * scale))))
-gray = ImageOps.expand(gray.filter(ImageFilter.SHARPEN), border=12, fill="white")
+    border = 14
+else:
+    if ImageStat.Stat(gray).mean[0] < 127:
+        gray = ImageOps.invert(gray)
+    gray = ImageOps.autocontrast(gray, cutoff=1)
+    pixels = gray.width * gray.height
+    if pixels <= 2_250_000:
+        gray = gray.resize((gray.width * 2, gray.height * 2), Image.Resampling.LANCZOS)
+    elif pixels > 9_000_000:
+        scale = math.sqrt(9_000_000 / pixels)
+        gray.thumbnail((max(1, int(gray.width * scale)), max(1, int(gray.height * scale))))
+    border = 12
+gray = ImageOps.expand(gray.filter(ImageFilter.SHARPEN), border=border, fill="white")
 with TemporaryDirectory(prefix="lab5-terminal-ocr-") as temporary:
     prepared = Path(temporary) / "terminal.png"
     gray.save(prepared)
@@ -282,16 +303,35 @@ with TemporaryDirectory(prefix="lab5-terminal-ocr-") as temporary:
 """
 
 
-def retry_docker_ocr(image):
+def retry_docker_ocr(image, *, image_list_pane=False):
     try:
         completed = subprocess.run(
-            [sys.executable, "-c", TERMINAL_RETRY, str(shared.ROOT / "scripts"), str(image)],
+            [sys.executable, "-c", TERMINAL_RETRY, str(shared.ROOT / "scripts"), str(image),
+             "image-list-pane" if image_list_pane else "full"],
             capture_output=True, encoding="utf-8", errors="replace", check=False, timeout=25,
             env={**os.environ, "OMP_THREAD_LIMIT": "1"},
         )
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return completed.stdout if completed.returncode == 0 else ""
+
+
+def recover_docker_image_row(image, text, username):
+    check = CHECKS["docker_images_after.png"]
+    # Retry the small table text only when the command, headers, and identity
+    # have already been recognized. Do not infer the tag from a partial row.
+    if shared.evidence_problems(check, text, username) != [DOCKER_IMAGE_ROW + " not detected"]:
+        return text
+    pane = retry_docker_ocr(image, image_list_pane=True)
+    row = re.search(
+        r"^[ \t]*(?:[^\w\s]+[ \t]*)?"
+        r"((?:docker[.]io/library/)?lab5(?:[ \t]*:[ \t]*|[ \t]+)1[.]0[ \t]+"
+        r"(?:sha256:)?(?:[0-9a-f]{64}|[0-9a-f]{12}))(?=[ \t]|$)",
+        pane, re.IGNORECASE | re.MULTILINE,
+    )
+    if row:
+        return text + "\n\n[Docker image-list pane]\n" + row[1] + "\n"
+    return text
 
 
 def grade_lab5(submission, total, username):
@@ -309,6 +349,8 @@ def grade_lab5(submission, total, username):
             retry = retry_docker_ocr(image)
             if retry.strip() and retry.strip() != text.strip():
                 text += "\n\n[Terminal OCR retry]\n\n" + retry
+            if check["filename"] == "docker_images_after.png":
+                text = recover_docker_image_row(image, text, username)
         if audit_directory:
             output = Path(audit_directory) / destination.name
             output.parent.mkdir(parents=True, exist_ok=True)
