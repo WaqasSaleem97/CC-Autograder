@@ -199,18 +199,33 @@ def duplicate_status(image: Path, peers: list[Path]) -> str:
     return "near" if near else ""
 
 
-def run_ocr(image: Path, destination: Path) -> str:
-    # Keep the raw text in the temporary grading file. Write the persistent
-    # audit copy ourselves so the shared helper never saves it unredacted there.
-    audit_directory = os.environ.get("OCR_AUDIT_DIR", "").strip()
+def run_ocr_attempt(image: Path, destination: Path, *, terminal_retry: bool = False) -> str:
+    command = [sys.executable, str(ROOT / "scripts/ocr_screenshot.py")]
+    if terminal_retry:
+        command.append("--terminal-retry")
     result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/ocr_screenshot.py"), str(image), str(destination)],
-        capture_output=True, text=True, check=False, timeout=100,
+        [*command, str(image), str(destination)],
+        capture_output=True, text=True, check=False, timeout=25 if terminal_retry else 100,
         env={**os.environ, "OMP_THREAD_LIMIT": "1", "OCR_AUDIT_DIR": ""},
     )
     if result.returncode:
         raise RuntimeError("Trusted OCR helper failed; no marks were changed")
-    text = destination.read_text(encoding="utf-8", errors="replace")
+    return destination.read_text(encoding="utf-8", errors="replace")
+
+
+def run_ocr(image: Path, destination: Path, *, check: dict | None = None, username: str = "") -> str:
+    # Keep raw text in temporary grading files. Retain only the redacted audit
+    # copy after both passes, without changing the original screenshot.
+    text = run_ocr_attempt(image, destination)
+    if check and check.get("terminal_ocr_retry") and text.strip() and evidence_problems(check, text, username):
+        try:
+            retry = run_ocr_attempt(image, destination.with_suffix(".retry.txt"), terminal_retry=True)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired):
+            # The optional retry must not override usable first-pass results.
+            retry = ""
+        if retry.strip() and retry.strip() != text.strip():
+            text += "\n\n[Terminal OCR retry]\n\n" + retry
+    audit_directory = os.environ.get("OCR_AUDIT_DIR", "").strip()
     if audit_directory:
         audit_output = Path(audit_directory) / destination.name
         audit_output.parent.mkdir(parents=True, exist_ok=True)
@@ -263,7 +278,8 @@ def grade(submission: Path, total: Decimal, username: str, rubric: dict) -> dict
             pending = {}
             early_problems = {}
             duplicates = {}
-            for name in names:
+            for check in checks:
+                name = check["filename"]
                 actual = files.get(name, "")
                 if actual == "__AMBIGUOUS__":
                     early_problems[name] = "ambiguous filename (multiple case/extension matches)"
@@ -287,7 +303,10 @@ def grade(submission: Path, total: Decimal, username: str, rubric: dict) -> dict
                 if duplicates[name] == "exact":
                     early_problems[name] = "exact duplicate of another student's same task"
                     continue
-                pending[name] = pool.submit(run_ocr, image, Path(temporary) / (Path(name).stem + ".txt"))
+                pending[name] = pool.submit(
+                    run_ocr, image, Path(temporary) / (Path(name).stem + ".txt"),
+                    check=check, username=username,
+                )
 
             for index, check in enumerate(checks):
                 name = check["filename"]

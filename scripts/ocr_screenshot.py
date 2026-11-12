@@ -20,7 +20,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps, ImageStat
 
 
-def run_tesseract(image: Path, page_segmentation_mode: int) -> str:
+def run_tesseract(image: Path, page_segmentation_mode: int, *, timeout: float | None = None) -> str:
     result = subprocess.run(
         [
             "tesseract",
@@ -35,6 +35,7 @@ def run_tesseract(image: Path, page_segmentation_mode: int) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
+        timeout=timeout,
     )
     return result.stdout
 
@@ -489,15 +490,38 @@ def ocr_screenshot(source_path: Path) -> str:
     return "\n".join(unique_output)
 
 
+def ocr_terminal_block(source_path: Path) -> str:
+    """Retry dense terminal text with a high-contrast, upscaled block pass."""
+    with Image.open(source_path) as opened:
+        gray = ImageOps.exif_transpose(opened).convert("L")
+    if ImageStat.Stat(gray).mean[0] < 127:
+        gray = ImageOps.invert(gray)
+    gray = ImageOps.autocontrast(gray, cutoff=1)
+    pixels = gray.width * gray.height
+    if pixels <= 2_250_000:
+        gray = gray.resize((gray.width * 2, gray.height * 2), Image.Resampling.LANCZOS)
+    elif pixels > 9_000_000:
+        scale = math.sqrt(9_000_000 / pixels)
+        gray.thumbnail((max(1, int(gray.width * scale)), max(1, int(gray.height * scale))))
+    gray = ImageOps.expand(gray.filter(ImageFilter.SHARPEN), border=12, fill="white")
+    with tempfile.TemporaryDirectory(prefix="grader-terminal-ocr-") as temporary:
+        image = Path(temporary) / "terminal.png"
+        gray.save(image)
+        return run_tesseract(image, 6, timeout=18)
+
+
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("Usage: ocr_screenshot.py SOURCE_IMAGE OUTPUT_TEXT", file=sys.stderr)
+    arguments = sys.argv[1:]
+    terminal_retry = bool(arguments and arguments[0] == "--terminal-retry")
+    if terminal_retry:
+        arguments = arguments[1:]
+    if len(arguments) != 2:
+        print("Usage: ocr_screenshot.py [--terminal-retry] SOURCE_IMAGE OUTPUT_TEXT", file=sys.stderr)
         return 2
 
-    source = Path(sys.argv[1])
-    output = Path(sys.argv[2])
+    source, output = map(Path, arguments)
     try:
-        text = ocr_screenshot(source)
+        text = ocr_terminal_block(source) if terminal_retry else ocr_screenshot(source)
     except Exception as error:  # The grader reports unreadable OCR downstream.
         print(f"OCR failed for {source}: {error}", file=sys.stderr)
         text = ""

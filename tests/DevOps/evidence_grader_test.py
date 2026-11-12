@@ -127,7 +127,7 @@ class GradingTests(unittest.TestCase):
 
     def run_grade(self, text_overrides=None, peers=None):
         samples = {**self.samples, **(text_overrides or {})}
-        def ocr(_image, destination):
+        def ocr(_image, destination, **_options):
             return samples[destination.stem + ".png"]
         with mock.patch.object(grader, "run_ocr", side_effect=ocr), mock.patch.object(grader, "peer_screenshots", return_value=peers or {name: [] for name in self.samples}):
             return grader.grade(self.submission, Decimal("10"), "student-name", self.rubric)
@@ -346,6 +346,64 @@ console.log(JSON.stringify(parseFeedback(JSON.parse(input).feedback)));
 
 
 class OcrIntegrationTests(unittest.TestCase):
+    def test_docker_retry_supplies_missing_evidence_and_redacts_its_audit_text(self):
+        with tempfile.TemporaryDirectory(prefix="devops-terminal-test-") as temporary:
+            directory = Path(temporary)
+            source = directory / "docker_images_after.png"
+            output = source.with_suffix(".txt")
+            rubric = grader.load_rubric(HERE / "Lab5/criteria.json")
+            check = next(c for c in rubric["screenshots"] if c["filename"] == source.name)
+            first = "student-name@ubuntu:~$ docker images\nIMAGE IMAGE ID DISK USAGE CONTENT SIZE EXTRA\nlab5:1.8 abc123def456"
+            retry = "lab5:1.0 abc123def456 417MB 85.2MB\npassword=ExampleLabPassword123"
+            self.assertTrue(grader.evidence_problems(check, first, "student-name"))
+            with mock.patch.dict("os.environ", {"OCR_AUDIT_DIR": str(directory / "audit")}), mock.patch.object(
+                grader, "run_ocr_attempt", side_effect=[first, retry],
+            ) as recognize:
+                text = grader.run_ocr(source, output, check=check, username="student-name")
+            self.assertEqual(recognize.call_args_list, [
+                mock.call(source, output), mock.call(source, output.with_suffix(".retry.txt"), terminal_retry=True),
+            ])
+            self.assertEqual(grader.evidence_problems(check, text, "student-name"), [])
+            audit_text = (directory / "audit" / output.name).read_text()
+            self.assertIn("[REDACTED:", audit_text)
+            self.assertNotIn("ExampleLabPassword123", audit_text)
+
+    def test_docker_retry_is_skipped_when_valid_and_cannot_pass_a_wrong_tag(self):
+        source = Path("docker_images_after.png")
+        output = source.with_suffix(".txt")
+        rubric = grader.load_rubric(HERE / "Lab5/criteria.json")
+        check = next(c for c in rubric["screenshots"] if c["filename"] == source.name)
+        clean = "student-name@ubuntu:~$ docker images\nIMAGE IMAGE ID DISK USAGE CONTENT SIZE EXTRA\nlab5:1.0 abc123def456"
+        wrong = clean.replace("lab5:1.0", "lab5:1.8")
+        with mock.patch.dict("os.environ", {"OCR_AUDIT_DIR": ""}):
+            with mock.patch.object(grader, "run_ocr_attempt", return_value=clean) as recognize:
+                self.assertEqual(grader.run_ocr(source, output, check=check, username="student-name"), clean)
+                recognize.assert_called_once_with(source, output)
+            for retry in ("lab5:1.8 abc123def456 417MB", subprocess.TimeoutExpired(["tesseract"], 25)):
+                with mock.patch.object(grader, "run_ocr_attempt", side_effect=[wrong, retry]):
+                    result = grader.run_ocr(source, output, check=check, username="student-name")
+                self.assertTrue(grader.evidence_problems(check, result, "student-name"))
+
+    @unittest.skipUnless(shutil.which("tesseract"), "Tesseract is needed for the OCR integration smoke test")
+    def test_terminal_retry_reads_a_generated_docker_table(self):
+        with tempfile.TemporaryDirectory(prefix="devops-terminal-ocr-") as temporary:
+            directory = Path(temporary)
+            source = directory / "docker_images_after.png"
+            image = Image.new("RGB", (1050, 190), (30, 30, 30))
+            font_path = Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf")
+            font = ImageFont.truetype(str(font_path), 20) if font_path.exists() else ImageFont.load_default()
+            text = (
+                "student-name@ubuntu:~$ docker images\n"
+                "IMAGE          IMAGE ID        DISK USAGE   CONTENT SIZE   EXTRA\n"
+                "lab5:1.0       abc123def456    417MB        85.2MB"
+            )
+            ImageDraw.Draw(image).multiline_text((25, 25), text, fill="white", font=font, spacing=8)
+            image.save(source)
+            recognized = grader.run_ocr_attempt(source, source.with_suffix(".txt"), terminal_retry=True)
+            rubric = grader.load_rubric(HERE / "Lab5/criteria.json")
+            check = next(c for c in rubric["screenshots"] if c["filename"] == source.name)
+            self.assertEqual(grader.evidence_problems(check, recognized, "student-name"), [])
+
     @unittest.skipUnless(shutil.which("tesseract"), "Tesseract is needed for the OCR integration smoke test")
     def test_generated_terminal_screenshots_pass_with_sensitive_audit_text_redacted(self):
         with tempfile.TemporaryDirectory(prefix="devops-real-ocr-") as temporary:

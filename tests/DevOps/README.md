@@ -75,6 +75,11 @@ instead of replacing existing marks with zero.
   its image ID. The Dockerfile listing need not show an unrelated `app` folder,
   and IntelliJ Welcome evidence need not show the browser address bar; port
   3001 is checked separately in the launch evidence.
+- Lab 05 allows OCR spacing around punctuation in the expected Java JAR paths
+  and accepts equivalent paths beginning with `./`. It still requires the
+  correct artifact/version and startup output. If the initial OCR misses required
+  Docker build or final image-list evidence, retry with an enlarged terminal
+  pass without relaxing the tag, image ID, or student identity checks.
 - Match instructor-reference copies against trusted, pinned Git blob hashes,
   not a student-controlled blacklist. Lab 06's 37 supplied reference PNGs cannot
   be used byte-for-byte as student evidence.
