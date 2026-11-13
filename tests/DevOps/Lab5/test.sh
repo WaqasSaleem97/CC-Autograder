@@ -36,6 +36,15 @@ def criterion(filename, task, label, *required, retry_terminal=False):
 
 DOCKER_IMAGE_ROW = "lab5:1.0 image row with image ID"
 
+# Keep the exact GitHub owner and repository, even when OCR adds spaces or
+# a line break around the punctuation of the clone URL.
+URL_GAP = r"[ \t]*(?:\r?\n[ \t]*)?"
+INTELLIJ_CLONE_REPO = (
+    rf"(?<![\w.-])github[ \t]*[.][ \t]*com{URL_GAP}/{URL_GAP}WaqasSaleem97"
+    rf"{URL_GAP}/{URL_GAP}Intellij{URL_GAP}-{URL_GAP}Idea{URL_GAP}-{URL_GAP}docker"
+    r"(?:[ \t]*[.][ \t]*git)?(?![\w./-]|[ \t]+[./-])"
+)
+
 RUBRIC = {
     "lab": 5,
     "source_url": "https://github.com/WaqasSaleem97/DevOps_F26/blob/a4e0d5bac6b167e0663b013e8bf23058d833f613/Labs/Lab05/README.md",
@@ -47,7 +56,7 @@ RUBRIC = {
         criterion(
             "intellij_repo_clone.png", 1, "Clone the IntelliJ Docker repository",
             ("git clone command", r'''git\s+clone'''),
-            ("Intellij-Idea-docker repository", r'''github[.]com/WaqasSaleem97/Intellij-Idea-docker'''),
+            ("Intellij-Idea-docker repository", INTELLIJ_CLONE_REPO),
             ("Successful clone output", r'''Cloning\s+into|Receiving\s+objects|Resolving\s+deltas|done[.]'''),
         ),
         criterion(
