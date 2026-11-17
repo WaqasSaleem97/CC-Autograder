@@ -15,9 +15,12 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
 import unicodedata
+
+from PIL import Image, ImageFilter, ImageOps, ImageStat
 
 TEST_DIRECTORY = Path(sys.argv.pop(1))
 sys.path.insert(0, str(TEST_DIRECTORY.parent))
@@ -103,9 +106,16 @@ def blocks(command, text, limit=55):
     """Get adjacent output, not unrelated output after a different command."""
     for match in re.finditer(command, text, FLAGS):
         output = []
+        content_lines = 0
         if match.end() < len(text):
-            for line in islice(text[match.end() + 1:].splitlines(), limit):
+            # Sparse OCR inserts blank lines between cells and variables.
+            # Bound meaningful content instead of dropping the end of an
+            # otherwise complete printenv/exit sequence after 65 raw lines.
+            for line in islice(text[match.end() + 1:].splitlines(), limit * 4):
                 if NEXT_DOCKER.fullmatch(line):
+                    break
+                content_lines += bool(line.strip())
+                if content_lines > limit:
                     break
                 output.append(line)
         yield match, "\n".join(output)
@@ -167,7 +177,7 @@ TARGET = r"[a-z0-9][a-z0-9_.-]{0,127}(?:[ \t]+[a-z0-9_.-]{1,127}){0,2}"
 RESTART = docker_command(rf"restart[ \t]+({TARGET})")
 STOP = docker_command(rf"stop[ \t]+({TARGET})")
 REMOVE = docker_command(rf"rm[ \t]+({TARGET})")
-RMI = terminal(rf"{DOCKER}(?:rmi|image[ \t]+rm)[ \t]+{POSTGRES_96}")
+RMI = terminal(rf"{DOCKER}(?:rmi|image[ \t]+rm)[ \t]+(?:(?:-f|--force)[ \t]+)?{POSTGRES_96}")
 UNTAGGED = rf"^[ \t]*Untagged{COLON}{POSTGRES_96}[ \t]*$"
 DOCKER_ERROR = r"^[ \t]*(?:error response from daemon\b|docker:|error:|[-]?bash:)"
 
@@ -271,7 +281,8 @@ ATTACH = docker_command(
 )
 EXEC = docker_command(rf"exec[ \t]+(?:-it|-ti|-i[ \t]+-t|-t[ \t]+-i|--interactive[ \t]+--tty)[ \t]+{NGINX_NAME}[ \t]+(?:/bin/)?sh")
 SHELL_EXIT = terminal(r"exit")
-LS_ROOT = terminal(r"(?:ls|1s|l5)[ \t]*/")
+# A narrow OCR variant: a cursor next to "ls" can be read as "ils".
+LS_ROOT = terminal(r"(?:ls|1s|l5|ils)(?:[ \t]*/)?")
 PRINTENV = terminal(r"printenv")
 ENV_VALUE = r"^[ \t]*(?:HOSTNAME|NGINX_VERSION|PATH|PWD|HOME)[ \t]*=[ \t]*\S+"
 SHELL_COMMAND = re.compile(terminal(r"(?:touch|(?:r[mn])|printenv|exit|ls)[ \t]*(?:[ \t][^\n]*)?"), FLAGS)
@@ -280,7 +291,17 @@ ROOT_DIRS = {"bin", "boot", "dev", "etc", "home", "lib", "lib64", "media", "mnt"
 
 
 def root_listing(text, _username):
-    for _, output in blocks(LS_ROOT, text, limit=38):
+    sessions = list(blocks(EXEC, text, limit=120))
+    for command, output in blocks(LS_ROOT, text, limit=38):
+        if not re.search(r"(?:ls|1s|l5|ils)[ \t]*/[ \t]*$", command[0], FLAGS):
+            # A bare ls is equivalent only if this same shell's printenv
+            # demonstrates PWD=/; do not accept a listing of another folder.
+            if not any(
+                start.end() < command.start() < start.end() + 1 + len(session)
+                and re.search(r"^[ \t]*PWD[ \t]*=[ \t]*/[ \t]*$", session, FLAGS)
+                for start, session in sessions
+            ):
+                continue
         seen = set()
         for line in output.splitlines():
             if SHELL_COMMAND.fullmatch(line):
@@ -295,7 +316,16 @@ def root_listing(text, _username):
 
 
 def returned_to_ubuntu(text, username, command, output_marker):
-    for start, output in blocks(command, text, limit=65):
+    def host_prompt(line):
+        # Reuse the shared conservative identity/hostname OCR tolerance here,
+        # too. A second exact "ubuntu" regex rejected visible return prompts
+        # even when the username and host passed the normal identity check.
+        return (
+            re.match(r"[^$#%\n]{0,180}[:~][^$#%\n]{0,40}[$#%]", line) is not None
+            and shared.prompt_matches(username, line)
+        )
+
+    for start, output in blocks(command, text, limit=120):
         marker = re.search(output_marker, output, FLAGS)
         if marker is None:
             continue
@@ -303,11 +333,11 @@ def returned_to_ubuntu(text, username, command, output_marker):
         # Ctrl+P/Ctrl+Q need not print. The request/exit and the later host
         # prompt are observable evidence of returning to the Ubuntu shell.
         for line in next_lines:
-            if re.search(r"[@g][ \t]*ubuntu[ \t]*[:$#]", line, FLAGS) and shared.prompt_matches(username, line):
+            if host_prompt(line):
                 return True
         end = start.end() + 1 + len(output)
         following = text[end:].lstrip("\n").split("\n", 1)[0]
-        if re.search(r"[@g][ \t]*ubuntu[ \t]*[:$#]", following, FLAGS) and shared.prompt_matches(username, following):
+        if host_prompt(following):
             return True
     return False
 
@@ -382,7 +412,7 @@ RUBRIC = [
                  lambda text, user: returned_to_ubuntu(text, user, ATTACH, HTTP_REQUEST))),
     check("nginx_exec_shell.png", "Change files in the NGINX container shell",
           ("docker exec -it nginx-latest /bin/sh command", EXEC),
-          ("ls / command", LS_ROOT),
+          ("ls / command (or ls with PWD=/ in the same container shell)", LS_ROOT),
           ("touch newfile.html in the NGINX document root", terminal(rf"touch[ \t]+[^\n]*{NEWFILE}(?:[ \t]+[^\n]*)?")),
           ("touch oldfile.html in the NGINX document root", terminal(rf"touch[ \t]+[^\n]*{OLDFILE}(?:[ \t]+[^\n]*)?")),
           ("Remove oldfile.html from the NGINX document root", terminal(rf"rm(?:[ \t]+-f)?[ \t]+{OLDFILE}")),
@@ -395,7 +425,9 @@ RUBRIC = [
           ("Added newfile.html in the Docker diff output", rf"^[ \t]*A[ \t]+{NEWFILE}[ \t]*$"),
           forbidden=(("A remaining oldfile.html change", rf"^[ \t]*[ACD][ \t]+{OLDFILE}[ \t]*$"),)),
     check("nginx_inspect.png", "Inspect the NGINX container's running state",
-          ("docker inspect nginx-latest command", docker_command(rf"inspect[ \t]+{NGINX_NAME}")),
+          ("docker inspect nginx-latest command (optionally limited with head)",
+           docker_command(rf"inspect[ \t]+{NGINX_NAME}(?:[ \t]+\|[ \t]*head"
+                          r"(?:[ \t]+(?:-n[ \t]+[1-9]\d{0,2}|-[1-9]\d{0,2}))?)?")),
           ("Running container state in inspect output", r"[\"']?Running[\"']?[ \t]*:[ \t]*true\b|[\"']?Status[\"']?[ \t]*:[ \t]*[\"']?running\b")),
     check("nginx_commit.png", "Save the modified container as nginx:myimage",
           ("docker commit nginx-latest nginx:myimage command", COMMIT),
@@ -405,6 +437,64 @@ NAMES = [criterion["filename"] for criterion in RUBRIC]
 POINT_CHECKS = 17
 
 
+def criterion_problems(criterion, text, username):
+    problems = shared.evidence_problems(criterion, text, username)
+    extra = criterion["extra"]
+    if not problems and extra and not extra[1](text, username):
+        problems.append(extra[0] + " not detected")
+    return problems
+
+
+def terminal_ocr_retry(image):
+    """One bounded, Lab 7-only block-text pass. Never run a student command."""
+    try:
+        with Image.open(image) as original:
+            gray = ImageOps.exif_transpose(original).convert("L")
+            if ImageStat.Stat(gray).mean[0] < 127:
+                gray = ImageOps.invert(gray)
+            gray = ImageOps.autocontrast(gray, cutoff=1)
+            pixels = gray.width * gray.height
+            if pixels <= 2_250_000:
+                gray = gray.resize((gray.width * 2, gray.height * 2), Image.Resampling.LANCZOS)
+            elif pixels > 9_000_000:
+                scale = (9_000_000 / pixels) ** 0.5
+                gray.thumbnail((max(1, int(gray.width * scale)), max(1, int(gray.height * scale))))
+            gray = ImageOps.expand(gray.filter(ImageFilter.SHARPEN), border=12, fill="white")
+            with TemporaryDirectory(prefix="lab7-terminal-retry-") as temporary:
+                prepared = Path(temporary) / "terminal.png"
+                gray.save(prepared)
+                result = subprocess.run(
+                    ["tesseract", str(prepared), "stdout", "--psm", "6"],
+                    capture_output=True, encoding="utf-8", errors="replace", check=False, timeout=25,
+                    env={**os.environ, "OMP_THREAD_LIMIT": "1"},
+                )
+        return result.stdout if result.returncode == 0 else ""
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return ""
+
+
+def recognize(image, destination, criterion, username):
+    text = shared.run_ocr(image, destination)
+    # Browser-only pages cannot supply a missing Ubuntu prompt via a terminal
+    # retry. Leave all existing passes and their exact/near-copy checks intact.
+    if criterion["filename"] in ("nginx_latest_page.png", "nginx_older_page.png"):
+        return text
+    if not criterion_problems(criterion, normalize_ocr(text), username):
+        return text
+    retry = terminal_ocr_retry(image)
+    if retry.strip() and retry.strip() != text.strip():
+        text += "\n\n[Lab 7 terminal OCR retry]\n\n" + retry
+        audit = os.environ.get("OCR_AUDIT_DIR", "").strip()
+        if audit:
+            output = Path(audit) / destination.name
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(
+                "[REDACTED: OCR contained a visible credential. Inspect the image privately.]\n"
+                if shared.credential_visible(text) else text, encoding="utf-8",
+            )
+    return text
+
+
 def normalize_ocr(text):
     text = unicodedata.normalize("NFKC", text).replace("\r\n", "\n").translate(str.maketrans({
         "–": "-", "—": "-", "−": "-", "“": '"', "”": '"', "’": "'",
@@ -412,6 +502,14 @@ def normalize_ocr(text):
     text = re.sub(r"(?<!\S)-[ \t]*(?:-[ \t]*)?"
                   r"(version|all|detach|publish|name|interactive|tty|sig-proxy)(?=[ \t=]|$)",
                   r"--\1", text, flags=FLAGS)
+    # The o in docker can be recognized as e in small terminal text.
+    # Limit this correction to an actual shell prompt followed by a known
+    # command. Do not rewrite a word inside output, a URL or an arbitrary line.
+    text = re.sub(
+        r"^([^\n]{0,150}?[$#%][ \t]*(?:sudo[ \t]+)?)decker"
+        r"(?=[ \t]+(?:inspect|info|run|ps|images|restart|stop|rm|rmi|exec|diff|commit|attach|logs)\b)",
+        r"\1docker", text, flags=FLAGS,
+    )
     text = re.sub(r"(\bdocker(?:[ \t]+(?:container|image|system))?)[ \t]*\n(?:[ \t]*\n){0,3}[ \t]*"
                   r"(?=(?:run|ps|images|ls|info|search|restart|stop|rm|rmi|logs|attach|exec|diff|inspect|commit)\b)",
                   r"\1 ", text, flags=FLAGS)
@@ -461,7 +559,10 @@ def grade(submission, total, username):
                     early_problems[name] = "exact duplicate of another student's same task"
                 else:
                     duplicates[name] = duplicate
-                    pending[name] = pool.submit(shared.run_ocr, image, Path(temp) / (Path(name).stem + ".txt"))
+                    pending[name] = pool.submit(
+                        recognize, image, Path(temp) / (Path(name).stem + ".txt"),
+                        RUBRIC[NAMES.index(name)], username,
+                    )
 
         for index, criterion in enumerate(RUBRIC):
             name = criterion["filename"]
@@ -474,9 +575,7 @@ def grade(submission, total, username):
                 problems = [early_problems[name]]
             else:
                 text = normalize_ocr(pending[name].result())
-                problems = shared.evidence_problems(criterion, text, username)
-                if not problems and extra and not extra[1](text, username):
-                    problems.append(extra[0] + " not detected")
+                problems = criterion_problems(criterion, text, username)
             if problems:
                 message = ", ".join(problems) + " (0)"
             else:
